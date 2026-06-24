@@ -3,291 +3,793 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin — Arisan</title>
-<link rel="stylesheet" href="style.css">
+<title>Arisan Keluarga &amp; Komunitas — Panel Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --teal-deep:#0b3438;
+  --teal:#0f4c4f;
+  --teal-light:#16686b;
+  --navy:#0a1f2e;
+  --gold:#d4a849;
+  --gold-light:#e8c873;
+  --gold-dim:rgba(212,168,73,0.15);
+  --cream:#faf7f0;
+  --surface:#ffffff;
+  --surface2:#f5f2ea;
+  --ink:#0e1f23;
+  --ink-muted:#5a6b6d;
+  --border:#e3ddd0;
+  --danger:#c0392b;
+  --success:#1e8a5f;
+  --warn:#b8860b;
+  --radius:14px;
+  --radius-sm:8px;
+  --shadow:0 4px 24px rgba(11,52,56,0.08);
+  --shadow-lg:0 20px 60px rgba(11,52,56,0.18);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;line-height:1.55}
+h1,h2,h3{font-family:'Fraunces',serif}
+.hidden{display:none!important}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px}
+
+#login-screen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--navy) 0%,var(--teal-deep) 55%,var(--teal) 100%);
+  padding:20px;position:relative;overflow:hidden;
+}
+#login-screen::before{
+  content:'';position:absolute;top:-20%;right:-10%;width:500px;height:500px;border-radius:50%;
+  background:radial-gradient(circle,rgba(212,168,73,0.12) 0%,transparent 70%);
+}
+.login-card{
+  background:var(--surface);border-radius:20px;padding:44px 38px;width:100%;max-width:420px;
+  box-shadow:var(--shadow-lg);position:relative;z-index:2;border:1px solid rgba(212,168,73,0.2);
+}
+.login-brand{text-align:center;margin-bottom:8px}
+.login-brand .icon{font-size:38px;margin-bottom:10px;display:block}
+.login-brand h1{font-size:23px;color:var(--teal-deep);font-weight:700}
+.login-brand p{font-size:13px;color:var(--ink-muted);margin-top:4px}
+.admin-badge{display:inline-block;background:var(--navy);color:var(--gold-light);font-size:10.5px;
+  font-weight:800;letter-spacing:1.4px;padding:4px 12px;border-radius:99px;margin-top:10px;text-transform:uppercase}
+.login-form{margin-top:26px;display:flex;flex-direction:column;gap:16px}
+.field label{font-size:12px;font-weight:700;color:var(--teal-deep);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px}
+.field input,.field select,.field textarea{
+  width:100%;padding:13px 15px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  font-size:14px;background:var(--surface2);transition:.2s;color:var(--ink);
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--gold);background:#fff;box-shadow:0 0 0 3px var(--gold-dim)}
+.btn-gold{
+  background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--navy);border:none;
+  padding:14px;border-radius:var(--radius-sm);font-weight:800;font-size:14.5px;
+  transition:.2s;box-shadow:0 6px 18px rgba(212,168,73,0.35);margin-top:6px;
+}
+.btn-gold:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(212,168,73,0.45)}
+.btn-gold:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.login-err{color:var(--danger);font-size:13px;text-align:center;min-height:18px;font-weight:600}
+
+#app-shell{display:none;min-height:100vh}
+#app-shell.active{display:block}
+.topbar{
+  background:var(--navy);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:50;box-shadow:0 2px 10px rgba(0,0,0,0.2);
+}
+.topbar-brand{display:flex;align-items:center;gap:10px}
+.topbar-brand .icon{font-size:20px}
+.topbar-brand h2{font-size:17px;color:#fff;font-weight:700}
+.topbar-brand .tag{background:var(--gold);color:var(--navy);font-size:9.5px;font-weight:800;
+  padding:3px 9px;border-radius:99px;letter-spacing:.8px;text-transform:uppercase;margin-left:6px}
+.btn-logout{background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.18);color:#fff;
+  padding:8px 14px;border-radius:var(--radius-sm);font-size:12.5px;font-weight:700}
+.btn-logout:hover{background:rgba(192,57,43,0.25);border-color:var(--danger)}
+
+.tabbar{display:flex;gap:4px;background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 20px;overflow-x:auto;scrollbar-width:none}
+.tabbar::-webkit-scrollbar{display:none}
+.tab-btn{flex-shrink:0;padding:14px 18px;border:none;background:none;color:var(--ink-muted);
+  font-weight:700;font-size:13.5px;border-bottom:3px solid transparent;transition:.15s}
+.tab-btn.active{color:var(--teal-deep);border-bottom-color:var(--gold)}
+.tab-btn:hover{color:var(--teal)}
+
+.main-content{max-width:1080px;margin:0 auto;padding:26px 20px 80px}
+.panel{display:none}
+.panel.active{display:block;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap}
+.sec-head h3{font-size:20px;color:var(--teal-deep)}
+.btn-primary{background:var(--teal);color:#fff;border:none;padding:11px 20px;border-radius:var(--radius-sm);
+  font-weight:700;font-size:13.5px;transition:.15s}
+.btn-primary:hover{background:var(--teal-light)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px;box-shadow:var(--shadow)}
+.stat-card .ic{font-size:22px;margin-bottom:8px}
+.stat-card .val{font-size:26px;font-weight:800;color:var(--teal-deep)}
+.stat-card .lbl{font-size:12px;color:var(--ink-muted);font-weight:600;margin-top:2px}
+
+.group-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.group-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;box-shadow:var(--shadow)}
+.group-cover{width:100%;height:110px;background:linear-gradient(135deg,var(--teal),var(--teal-deep));
+  display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5);font-size:30px;overflow:hidden}
+.group-cover img{width:100%;height:100%;object-fit:cover}
+.group-body{padding:16px}
+.group-body h4{font-size:15px;color:var(--teal-deep);margin-bottom:6px}
+.group-meta{font-size:12px;color:var(--ink-muted);margin-bottom:12px;display:flex;justify-content:space-between}
+.group-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn-sm{padding:7px 12px;border-radius:7px;font-size:12px;font-weight:700;border:1.5px solid var(--border);background:none;color:var(--ink-muted)}
+.btn-sm.primary{border-color:var(--teal);color:var(--teal)}
+.btn-sm.primary:hover{background:var(--teal);color:#fff}
+
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  overflow-x:auto;box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;min-width:560px}
+thead th{background:var(--surface2);color:var(--teal-deep);text-align:left;padding:12px 16px;
+  font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border)}
+tbody td{padding:13px 16px;font-size:13.5px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface2)}
+.status-pill{font-size:11px;font-weight:800;padding:5px 12px;border-radius:99px;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap}
+.status-pill.unpaid{background:rgba(192,57,43,0.1);color:var(--danger)}
+.status-pill.pending_verification{background:rgba(184,134,11,0.12);color:var(--warn)}
+.status-pill.paid{background:rgba(30,138,95,0.1);color:var(--success)}
+.proof-thumb{width:46px;height:46px;border-radius:8px;object-fit:cover;border:1.5px solid var(--border);cursor:pointer}
+.btn-approve{background:rgba(30,138,95,0.1);color:var(--success);border:1.5px solid var(--success);
+  padding:6px 12px;border-radius:7px;font-size:11.5px;font-weight:700;margin-right:6px}
+.btn-approve:hover{background:var(--success);color:#fff}
+.btn-reject{background:rgba(192,57,43,0.08);color:var(--danger);border:1.5px solid var(--danger);
+  padding:6px 12px;border-radius:7px;font-size:11.5px;font-weight:700}
+.btn-reject:hover{background:var(--danger);color:#fff}
+
+.undian-card{background:linear-gradient(135deg,var(--teal-deep),var(--navy));border-radius:var(--radius);
+  padding:26px;color:#fff;margin-bottom:22px;position:relative;overflow:hidden}
+.undian-card h3{color:#fff;font-size:19px;margin-bottom:6px}
+.undian-card p{color:rgba(255,255,255,.65);font-size:13px;margin-bottom:18px}
+.undian-select-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.undian-select-row .field{flex:1;min-width:180px;margin-bottom:0}
+.undian-select-row select{background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.2);color:#fff}
+.undian-select-row select option{color:#000}
+.btn-kocok{background:var(--gold);color:var(--navy);border:none;padding:12px 26px;border-radius:var(--radius-sm);
+  font-weight:800;font-size:14px;box-shadow:0 6px 18px rgba(212,168,73,0.4);white-space:nowrap}
+.btn-kocok:hover{transform:translateY(-1px)}
+.btn-kocok:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.eligible-info{margin-top:14px;font-size:12.5px;color:rgba(255,255,255,.7)}
+.eligible-info b{color:var(--gold-light)}
+
+.history-list{display:flex;flex-direction:column;gap:8px}
+.history-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:12px 16px;display:flex;justify-content:space-between;align-items:center;font-size:13.5px}
+.history-row .hr-name{font-weight:700;color:var(--teal-deep)}
+.history-row .hr-meta{font-size:12px;color:var(--ink-muted)}
+
+.empty-note{text-align:center;padding:50px 20px;color:var(--ink-muted)}
+.empty-note .ic{font-size:38px;display:block;margin-bottom:10px;opacity:.5}
+
+#toast-box{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:9000;
+  display:flex;flex-direction:column;gap:8px;align-items:center}
+.toast{background:var(--navy);color:#fff;padding:11px 22px;border-radius:99px;font-size:13px;font-weight:600;
+  box-shadow:var(--shadow-lg);opacity:0;transform:translateY(10px);transition:.3s;white-space:nowrap}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.err{background:var(--danger)}
+.toast.ok{background:var(--success)}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,31,46,.6);backdrop-filter:blur(4px);
+  z-index:8000;align-items:center;justify-content:center;padding:18px}
+.modal-overlay.show{display:flex}
+.modal-box{background:var(--surface);border-radius:18px;padding:26px;width:100%;max-width:460px;
+  box-shadow:var(--shadow-lg);position:relative;max-height:88vh;overflow-y:auto}
+.modal-box h3{color:var(--teal-deep);margin-bottom:16px;font-size:18px}
+.modal-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:18px;color:var(--ink-muted)}
+.modal-box .field{margin-bottom:14px}
+.lightbox-img-full{max-width:100%;border-radius:10px;display:block;margin:0 auto}
+
+@media(max-width:600px){
+  .topbar{padding:12px 16px}
+  .main-content{padding:18px 14px 70px}
+  .sec-head{flex-direction:column;align-items:stretch}
+  .undian-select-row{flex-direction:column;align-items:stretch}
+}
+</style>
 </head>
 <body>
 
-<!-- AUTH CHECK SPLASH -->
-<div id="auth-screen" class="auth-screen">
-  <div class="auth-card">
-    <div class="auth-logo">
-      <div class="logo-mark">A</div>
-      <h1>Admin Panel</h1>
-      <p>Masuk sebagai administrator</p>
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <span class="icon">🪙</span>
+      <h1>Arisan Keluarga</h1>
+      <p>&amp; Komunitas</p>
+      <span class="admin-badge">🔐 Panel Administrator</span>
     </div>
-    <form id="login-form" class="auth-form">
-      <div class="form-group">
+    <form class="login-form" id="login-form">
+      <div class="field">
         <label>Email Admin</label>
-        <input type="email" id="login-email" placeholder="admin@arisan.com" required>
+        <input type="email" id="login-email" placeholder="admin@arisan.com" required autocomplete="username">
       </div>
-      <div class="form-group">
+      <div class="field">
         <label>Kata Sandi</label>
-        <input type="password" id="login-password" placeholder="••••••••" required>
+        <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
       </div>
-      <button type="submit" class="btn btn-primary btn-full" id="login-btn">Masuk</button>
-      <p id="auth-error" class="auth-error"></p>
+      <button type="submit" class="btn-gold" id="btn-login">Masuk Panel Admin</button>
+      <div class="login-err" id="login-err"></div>
     </form>
   </div>
 </div>
 
-<!-- ADMIN APP -->
-<div id="app" class="app hidden">
-
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <div class="logo-mark sm">A</div>
-      <span class="sidebar-title">Admin</span>
-      <button class="sidebar-close" id="sidebar-close">✕</button>
-    </div>
-    <div class="user-card">
-      <div class="user-avatar admin-badge" id="nav-avatar"></div>
-      <div class="user-info">
-        <div class="user-name" id="nav-username">—</div>
-        <div class="user-role">Administrator</div>
-      </div>
-    </div>
-    <nav class="sidebar-nav">
-      <a class="nav-item active" data-page="dashboard">
-        <span class="nav-icon">📊</span> Dashboard
-      </a>
-      <a class="nav-item" data-page="members">
-        <span class="nav-icon">👥</span> Anggota
-      </a>
-      <a class="nav-item" data-page="groups">
-        <span class="nav-icon">🏠</span> Kelola Grup
-      </a>
-      <a class="nav-item" data-page="payments">
-        <span class="nav-icon">💳</span> Verifikasi Iuran
-      </a>
-      <a class="nav-item" data-page="draw">
-        <span class="nav-icon">🎰</span> Kocok Arisan
-      </a>
-      <a class="nav-item" data-page="chat-mod">
-        <span class="nav-icon">💬</span> Moderasi Chat
-      </a>
-    </nav>
-    <div class="sidebar-footer">
-      <button class="btn btn-ghost" id="logout-btn">⬅ Keluar</button>
-    </div>
-  </aside>
-
+<div id="app-shell">
   <div class="topbar">
-    <button class="hamburger" id="hamburger">☰</button>
-    <h2 class="topbar-title" id="topbar-title">Dashboard</h2>
+    <div class="topbar-brand">
+      <span class="icon">🪙</span>
+      <h2>Arisan Admin</h2>
+      <span class="tag">Admin</span>
+    </div>
+    <button class="btn-logout" id="btn-logout">Keluar</button>
   </div>
 
-  <main class="main-content">
+  <nav class="tabbar">
+    <button class="tab-btn active" data-panel="dashboard">📊 Dashboard</button>
+    <button class="tab-btn" data-panel="groups">📂 Kelola Grup</button>
+    <button class="tab-btn" data-panel="verify">💳 Verifikasi Pembayaran</button>
+    <button class="tab-btn" data-panel="undian">🎲 Kocok Arisan</button>
+  </nav>
 
-    <!-- PAGE: DASHBOARD -->
-    <div class="page active" id="page-dashboard">
-      <div class="stats-grid" id="stats-grid">
-        <div class="stat-card">
-          <div class="stat-val" id="stat-members">—</div>
-          <div class="stat-lbl">Total Anggota</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-val" id="stat-groups">—</div>
-          <div class="stat-lbl">Total Grup</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-val" id="stat-pending">—</div>
-          <div class="stat-lbl">Menunggu Verifikasi</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-val" id="stat-paid">—</div>
-          <div class="stat-lbl">Sudah Lunas</div>
-        </div>
+  <div class="main-content">
+
+    <div class="panel active" id="panel-dashboard">
+      <div class="sec-head"><h3>Ringkasan</h3></div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="ic">📂</div><div class="val" id="stat-groups">—</div><div class="lbl">Total Grup Arisan</div></div>
+        <div class="stat-card"><div class="ic">👥</div><div class="val" id="stat-members">—</div><div class="lbl">Total Keanggotaan</div></div>
+        <div class="stat-card"><div class="ic">⏳</div><div class="val" id="stat-pending">—</div><div class="lbl">Menunggu Verifikasi</div></div>
+        <div class="stat-card"><div class="ic">✅</div><div class="val" id="stat-paid">—</div><div class="lbl">Pembayaran Lunas</div></div>
       </div>
-      <div class="page-header" style="margin-top:2rem">
-        <h3>Aktivitas Terbaru</h3>
-      </div>
-      <div id="recent-activity"></div>
+      <div class="sec-head"><h3>Grup Terbaru</h3></div>
+      <div class="group-grid" id="dashboard-recent-groups"></div>
     </div>
 
-    <!-- PAGE: MEMBERS -->
-    <div class="page hidden" id="page-members">
-      <div class="page-header">
-        <h2>Manajemen Anggota</h2>
-        <button class="btn btn-primary" id="add-member-btn">+ Tambah Anggota</button>
+    <div class="panel" id="panel-groups">
+      <div class="sec-head">
+        <h3>Kelola Grup Arisan</h3>
+        <button class="btn-primary" id="btn-new-group">+ Buat Grup Baru</button>
       </div>
-      <div class="search-bar">
-        <input type="text" id="member-search" placeholder="Cari nama atau email...">
-      </div>
+      <div class="group-grid" id="admin-group-grid"></div>
+    </div>
+
+    <div class="panel" id="panel-verify">
+      <div class="sec-head"><h3>Verifikasi Pembayaran</h3></div>
       <div class="table-wrap">
-        <table class="data-table" id="members-table">
+        <table>
           <thead>
-            <tr>
-              <th>Foto</th><th>Nama</th><th>Email</th><th>Role</th><th>Aksi</th>
-            </tr>
+            <tr><th>Anggota</th><th>Grup</th><th>Putaran</th><th>Nominal</th><th>Bukti</th><th>Status</th><th>Aksi</th></tr>
           </thead>
-          <tbody id="members-tbody"></tbody>
+          <tbody id="verify-table-body">
+            <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--ink-muted)">Memuat data...</td></tr>
+          </tbody>
         </table>
       </div>
     </div>
 
-    <!-- PAGE: GROUPS -->
-    <div class="page hidden" id="page-groups">
-      <div class="page-header">
-        <h2>Kelola Grup Arisan</h2>
-        <button class="btn btn-primary" id="add-group-btn">+ Buat Grup Baru</button>
-      </div>
-      <div class="groups-grid" id="admin-groups-grid"></div>
-    </div>
-
-    <!-- PAGE: PAYMENTS VERIFICATION -->
-    <div class="page hidden" id="page-payments">
-      <div class="page-header">
-        <h2>Verifikasi Iuran</h2>
-        <p>Periksa bukti transfer dan tandai lunas</p>
-      </div>
-      <div class="filter-tabs" id="payment-filter-tabs">
-        <button class="filter-tab active" data-status="pending">Menunggu</button>
-        <button class="filter-tab" data-status="paid">Lunas</button>
-        <button class="filter-tab" data-status="unpaid">Belum Bayar</button>
-      </div>
-      <div id="payments-verify-list"></div>
-    </div>
-
-    <!-- PAGE: DRAW -->
-    <div class="page hidden" id="page-draw">
-      <div class="page-header">
-        <h2>Kocok Arisan</h2>
-        <p>Pilih grup dan kocok pemenang periode ini</p>
-      </div>
-      <div class="draw-panel">
-        <div class="form-group">
-          <label>Pilih Grup</label>
-          <select id="draw-group-select" class="form-select">
-            <option value="">— Pilih grup —</option>
-          </select>
+    <div class="panel" id="panel-undian">
+      <div class="undian-card">
+        <h3>🎲 Kocok Arisan — Pilih Pemenang</h3>
+        <p>Sistem akan memilih satu pemenang acak dari anggota yang sudah <strong>lunas (paid)</strong> pada putaran ini dan <strong>belum pernah menang</strong> sebelumnya di grup ini.</p>
+        <div class="undian-select-row">
+          <div class="field">
+            <label style="color:rgba(255,255,255,.8)">Pilih Grup</label>
+            <select id="undian-group-select"></select>
+          </div>
+          <div class="field">
+            <label style="color:rgba(255,255,255,.8)">Putaran Ke-</label>
+            <select id="undian-round-select"></select>
+          </div>
+          <button class="btn-kocok" id="btn-kocok">🎲 Kocok Sekarang!</button>
         </div>
-        <div class="eligible-list" id="eligible-list">
-          <p class="muted">Pilih grup untuk melihat anggota yang eligible</p>
-        </div>
-        <div class="draw-slot" id="draw-slot">
-          <div class="draw-slot-inner" id="draw-slot-inner">🎰</div>
-        </div>
-        <button class="btn btn-primary btn-lg btn-full" id="draw-btn" disabled>
-          🎲 Mulai Pengundian
-        </button>
-        <div class="draw-result hidden" id="draw-result">
-          <div class="winner-announce" id="draw-winner-announce"></div>
-        </div>
+        <div class="eligible-info" id="eligible-info">Pilih grup &amp; putaran untuk melihat anggota yang berhak diundi.</div>
       </div>
+
+      <div class="sec-head"><h3>Riwayat Pemenang</h3></div>
+      <div class="history-list" id="winner-history-list"></div>
     </div>
 
-    <!-- PAGE: CHAT MODERATION -->
-    <div class="page hidden" id="page-chat-mod">
-      <div class="page-header">
-        <h2>Moderasi Chat</h2>
-        <p>Pantau dan hapus pesan tidak pantas</p>
-      </div>
-      <div class="form-group" style="max-width:300px">
-        <label>Filter Grup</label>
-        <select id="chat-mod-group-select" class="form-select">
-          <option value="">Semua Grup</option>
-        </select>
-      </div>
-      <div id="chat-mod-list"></div>
-    </div>
-
-  </main>
-</div>
-
-<!-- MODAL: Add/Edit Member -->
-<div class="modal-overlay hidden" id="member-modal">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 id="member-modal-title">Tambah Anggota</h3>
-      <button class="modal-close" id="member-modal-close">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="avatar-upload-area">
-        <div class="avatar-preview" id="avatar-preview">👤</div>
-        <button class="btn btn-ghost btn-sm" id="avatar-upload-btn">Upload Foto Profil</button>
-        <input type="file" id="avatar-input" accept="image/*" class="upload-input">
-      </div>
-      <div class="form-group">
-        <label>Username</label>
-        <input type="text" id="member-username" placeholder="nama_anggota">
-      </div>
-      <div class="form-group">
-        <label>Email</label>
-        <input type="email" id="member-email" placeholder="anggota@arisan.com">
-      </div>
-      <div class="form-group">
-        <label>Kata Sandi (untuk akun baru)</label>
-        <input type="password" id="member-password" placeholder="min. 6 karakter">
-      </div>
-      <div class="form-group">
-        <label>Role</label>
-        <select id="member-role" class="form-select">
-          <option value="user">User (Anggota)</option>
-          <option value="admin">Admin</option>
-        </select>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" id="cancel-member">Batal</button>
-      <button class="btn btn-primary" id="save-member">Simpan</button>
-    </div>
   </div>
 </div>
 
-<!-- MODAL: Add/Edit Group -->
-<div class="modal-overlay hidden" id="group-modal">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 id="group-modal-title">Buat Grup Baru</h3>
-      <button class="modal-close" id="group-modal-close">✕</button>
+<div class="modal-overlay" id="modal-group">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('group')">✕</button>
+    <h3 id="group-modal-title">Buat Grup Arisan Baru</h3>
+    <input type="hidden" id="group-edit-id">
+    <div class="field">
+      <label>Nama Grup</label>
+      <input type="text" id="group-name-input" placeholder="Contoh: Arisan Keluarga Besar">
     </div>
-    <div class="modal-body">
-      <div class="avatar-upload-area">
-        <div class="avatar-preview cover-preview" id="group-cover-preview">🏠</div>
-        <button class="btn btn-ghost btn-sm" id="cover-upload-btn">Upload Foto Sampul</button>
-        <input type="file" id="cover-input" accept="image/*" class="upload-input">
-      </div>
-      <div class="form-group">
-        <label>Nama Grup</label>
-        <input type="text" id="group-name" placeholder="Arisan Keluarga Besar">
-      </div>
-      <div class="form-group">
-        <label>Deskripsi</label>
-        <textarea id="group-desc" placeholder="Deskripsi singkat grup..." rows="3"></textarea>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Nominal Iuran (Rp)</label>
-          <input type="number" id="group-amount" placeholder="500000">
-        </div>
-        <div class="form-group">
-          <label>Maks. Slot</label>
-          <input type="number" id="group-slots" placeholder="12">
-        </div>
-      </div>
+    <div class="field">
+      <label>Deskripsi (Opsional)</label>
+      <textarea id="group-desc-input" rows="2" placeholder="Deskripsi singkat grup arisan ini..."></textarea>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" id="cancel-group">Batal</button>
-      <button class="btn btn-primary" id="save-group">Simpan Grup</button>
+    <div class="field">
+      <label>Nominal Iuran per Putaran (Rp)</label>
+      <input type="number" id="group-amount-input" placeholder="500000">
     </div>
+    <div class="field">
+      <label>Kapasitas Maksimal Anggota</label>
+      <input type="number" id="group-slots-input" placeholder="12">
+    </div>
+    <div class="field">
+      <label>URL Gambar Cover (Opsional)</label>
+      <input type="text" id="group-cover-input" placeholder="https://...">
+    </div>
+    <button class="btn-primary" style="width:100%" id="btn-save-group">Simpan Grup</button>
   </div>
 </div>
 
-<!-- TOAST -->
-<div class="toast hidden" id="toast"></div>
-
-<!-- WINNER ANNOUNCEMENT -->
-<div class="winner-overlay hidden" id="winner-overlay">
-  <div class="winner-card">
-    <div class="winner-icon">🎉</div>
-    <h2>Pemenang Terpilih!</h2>
-    <div class="winner-name" id="winner-name-display">—</div>
-    <button class="btn btn-primary" onclick="closeWinner()">Tutup</button>
+<div class="modal-overlay" id="modal-lightbox">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('lightbox')">✕</button>
+    <h3>Bukti Transfer</h3>
+    <img class="lightbox-img-full" id="lightbox-img" src="" alt="Bukti transfer">
   </div>
 </div>
 
-<script src="admin.js"></script>
+<div id="toast-box"></div>
+
+<script>
+const SUPABASE_URL  = 'https://kzhgmmopruugbnkhyemc.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6aGdtbW9wcnV1Z2Jua2h5ZW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1ODM0ODEsImV4cCI6MjA5NzE1OTQ4MX0.OQ9wILuiDuan4V3wZGMJ8mVmJvwY9lyC5BmvHHodEM8';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let currentUser = null;
+let currentProfile = null;
+let allGroupsAdmin = [];
+
+function toast(msg, type){
+  const box = document.getElementById('toast-box');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  box.appendChild(el);
+  requestAnimationFrame(()=> el.classList.add('show'));
+  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=> el.remove(), 300); }, 3200);
+}
+function closeModal(name){ document.getElementById('modal-' + name).classList.remove('show'); }
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('btn-login');
+  const errBox = document.getElementById('login-err');
+  errBox.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Memverifikasi...';
+
+  try {
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+
+    const { data: profile, error: profErr } = await db
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+    if (profErr) throw profErr;
+
+    if (profile.role !== 'admin') {
+      alert('Akses Ditolak! Akun ini bukan akun Administrator.');
+      await db.auth.signOut();
+      document.getElementById('login-form').reset();
+      btn.disabled = false;
+      btn.textContent = 'Masuk Panel Admin';
+      return;
+    }
+
+    currentUser = data.user;
+    currentProfile = profile;
+    await enterAdminApp();
+
+  } catch (err) {
+    let msg = 'Gagal masuk: ';
+    if (err.message && err.message.includes('Invalid login credentials')) {
+      msg += 'Email atau password salah.';
+    } else {
+      msg += err.message || 'Terjadi kesalahan.';
+    }
+    errBox.textContent = msg;
+    btn.disabled = false;
+    btn.textContent = 'Masuk Panel Admin';
+  }
+});
+
+async function enterAdminApp(){
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.add('active');
+  await loadDashboardStats();
+  await loadAllGroupsAdmin();
+  await loadVerificationTable();
+  populateUndianGroupSelect();
+  await loadWinnerHistory();
+}
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await db.auth.signOut();
+  window.location.reload();
+});
+
+(async () => {
+  const { data: { session } } = await db.auth.getSession();
+  if (session) {
+    const { data: profile, error } = await db.from('profiles').select('*').eq('id', session.user.id).single();
+    if (!error && profile && profile.role === 'admin') {
+      currentUser = session.user;
+      currentProfile = profile;
+      await enterAdminApp();
+    } else if (!error && profile) {
+      await db.auth.signOut();
+    }
+  }
+})();
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+  });
+});
+
+async function loadDashboardStats(){
+  try {
+    const [{ count: groupCount }, { count: memberCount }, { count: pendingCount }, { count: paidCount }] = await Promise.all([
+      db.from('arisan_groups').select('*', { count: 'exact', head: true }),
+      db.from('group_members').select('*', { count: 'exact', head: true }),
+      db.from('payments').select('*', { count: 'exact', head: true }).eq('payment_status', 'pending_verification'),
+      db.from('payments').select('*', { count: 'exact', head: true }).eq('payment_status', 'paid')
+    ]);
+    document.getElementById('stat-groups').textContent = groupCount ?? 0;
+    document.getElementById('stat-members').textContent = memberCount ?? 0;
+    document.getElementById('stat-pending').textContent = pendingCount ?? 0;
+    document.getElementById('stat-paid').textContent = paidCount ?? 0;
+
+    const { data: recent } = await db.from('arisan_groups').select('*').order('created_at', { ascending: false }).limit(3);
+    renderGroupGrid('dashboard-recent-groups', recent || [], false);
+  } catch (err) {
+    console.error('Dashboard error:', err);
+  }
+}
+
+async function loadAllGroupsAdmin(){
+  const { data, error } = await db.from('arisan_groups').select('*').order('created_at', { ascending: false });
+  if (error) { toast('Gagal memuat grup: ' + error.message, 'err'); return; }
+  allGroupsAdmin = data || [];
+  renderGroupGrid('admin-group-grid', allGroupsAdmin, true);
+}
+
+function renderGroupGrid(containerId, list, withActions){
+  const grid = document.getElementById(containerId);
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty-note" style="grid-column:1/-1"><span class="ic">📂</span>Belum ada grup arisan. Buat grup baru untuk memulai.</div>`;
+    return;
+  }
+  grid.innerHTML = list.map(g => {
+    const cover = g.group_cover_url ? `<img src="${g.group_cover_url}" alt="${g.group_name}">` : `🪙`;
+    const actions = withActions ? `
+      <div class="group-actions">
+        <button class="btn-sm primary" onclick="editGroup('${g.id}')">✏️ Edit</button>
+        <button class="btn-sm" onclick="deleteGroup('${g.id}','${(g.group_name||'').replace(/'/g,"\\'")}')">🗑️ Hapus</button>
+      </div>` : '';
+    return `<div class="group-card">
+      <div class="group-cover">${cover}</div>
+      <div class="group-body">
+        <h4>${g.group_name}</h4>
+        <div class="group-meta">
+          <span>Rp${Number(g.contribution_amount||0).toLocaleString('id-ID')}</span>
+          <span>${g.max_slots||'-'} slot</span>
+        </div>
+        ${actions}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('btn-new-group').addEventListener('click', () => {
+  document.getElementById('group-modal-title').textContent = 'Buat Grup Arisan Baru';
+  document.getElementById('group-edit-id').value = '';
+  document.getElementById('group-name-input').value = '';
+  document.getElementById('group-desc-input').value = '';
+  document.getElementById('group-amount-input').value = '';
+  document.getElementById('group-slots-input').value = '';
+  document.getElementById('group-cover-input').value = '';
+  document.getElementById('modal-group').classList.add('show');
+});
+
+function editGroup(groupId){
+  const g = allGroupsAdmin.find(x => x.id === groupId);
+  if (!g) return;
+  document.getElementById('group-modal-title').textContent = 'Edit Grup Arisan';
+  document.getElementById('group-edit-id').value = g.id;
+  document.getElementById('group-name-input').value = g.group_name || '';
+  document.getElementById('group-desc-input').value = g.description || '';
+  document.getElementById('group-amount-input').value = g.contribution_amount || '';
+  document.getElementById('group-slots-input').value = g.max_slots || '';
+  document.getElementById('group-cover-input').value = g.group_cover_url || '';
+  document.getElementById('modal-group').classList.add('show');
+}
+
+document.getElementById('btn-save-group').addEventListener('click', async () => {
+  const id = document.getElementById('group-edit-id').value;
+  const group_name = document.getElementById('group-name-input').value.trim();
+  const description = document.getElementById('group-desc-input').value.trim();
+  const contribution_amount = parseFloat(document.getElementById('group-amount-input').value) || 0;
+  const max_slots = parseInt(document.getElementById('group-slots-input').value) || 0;
+  const group_cover_url = document.getElementById('group-cover-input').value.trim() || null;
+
+  if (!group_name) { toast('Nama grup wajib diisi!', 'err'); return; }
+  if (!contribution_amount) { toast('Nominal iuran wajib diisi!', 'err'); return; }
+
+  const btn = document.getElementById('btn-save-group');
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+
+  try {
+    if (id) {
+      const { error } = await db.from('arisan_groups').update({
+        group_name, description, contribution_amount, max_slots, group_cover_url
+      }).eq('id', id);
+      if (error) throw error;
+      toast('Grup berhasil diperbarui!', 'ok');
+    } else {
+      const { error } = await db.from('arisan_groups').insert([{
+        group_name, description, contribution_amount, max_slots, group_cover_url
+      }]);
+      if (error) throw error;
+      toast('Grup arisan baru berhasil dibuat!', 'ok');
+    }
+    closeModal('group');
+    await loadAllGroupsAdmin();
+    await loadDashboardStats();
+    populateUndianGroupSelect();
+  } catch (err) {
+    toast('Gagal menyimpan grup: ' + err.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Simpan Grup';
+  }
+});
+
+async function deleteGroup(groupId, groupName){
+  if (!confirm(`Hapus grup "${groupName}"? Semua data terkait (anggota, pesan, pembayaran) mungkin ikut terdampak.`)) return;
+  try {
+    const { error } = await db.from('arisan_groups').delete().eq('id', groupId);
+    if (error) throw error;
+    toast('Grup berhasil dihapus.', 'ok');
+    await loadAllGroupsAdmin();
+    await loadDashboardStats();
+    populateUndianGroupSelect();
+  } catch (err) {
+    toast('Gagal menghapus grup: ' + err.message, 'err');
+  }
+}
+
+async function loadVerificationTable(){
+  const tbody = document.getElementById('verify-table-body');
+  try {
+    const { data, error } = await db
+      .from('payments')
+      .select('*, profiles:user_id(username), arisan_groups:group_id(group_name, contribution_amount)')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    if (!data || !data.length) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--ink-muted)">Belum ada data pembayaran.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.map(p => {
+      const uname = p.profiles ? p.profiles.username : 'Anggota';
+      const gname = p.arisan_groups ? p.arisan_groups.group_name : '—';
+      const amount = p.arisan_groups ? p.arisan_groups.contribution_amount : 0;
+      const statusLabel = { unpaid: 'Belum Bayar', pending_verification: 'Menunggu', paid: 'Lunas' }[p.payment_status] || p.payment_status;
+      const proofCell = p.proof_url
+        ? `<img src="${p.proof_url}" class="proof-thumb" onclick="openLightbox('${p.proof_url}')" alt="bukti">`
+        : `<span style="color:var(--ink-muted);font-size:12px">—</span>`;
+      const actionCell = p.payment_status === 'pending_verification'
+        ? `<button class="btn-approve" onclick="verifyPayment('${p.id}','paid')">✓ Setujui</button>
+           <button class="btn-reject" onclick="verifyPayment('${p.id}','unpaid')">✕ Tolak</button>`
+        : `<span style="font-size:12px;color:var(--ink-muted)">—</span>`;
+
+      return `<tr id="prow-${p.id}">
+        <td><strong>${uname}</strong></td>
+        <td>${gname}</td>
+        <td>#${p.round_number}</td>
+        <td>Rp${Number(amount||0).toLocaleString('id-ID')}</td>
+        <td>${proofCell}</td>
+        <td><span class="status-pill ${p.payment_status}">${statusLabel}</span></td>
+        <td>${actionCell}</td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--danger)">Gagal memuat: ${err.message}</td></tr>`;
+  }
+}
+
+function openLightbox(url){
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('modal-lightbox').classList.add('show');
+}
+
+async function verifyPayment(paymentId, newStatus){
+  try {
+    const { error } = await db.from('payments').update({ payment_status: newStatus }).eq('id', paymentId);
+    if (error) throw error;
+    toast(newStatus === 'paid' ? 'Pembayaran disetujui!' : 'Pembayaran ditolak, status dikembalikan ke belum bayar.', 'ok');
+    await loadVerificationTable();
+    await loadDashboardStats();
+  } catch (err) {
+    toast('Gagal memperbarui status: ' + err.message, 'err');
+  }
+}
+
+function populateUndianGroupSelect(){
+  const sel = document.getElementById('undian-group-select');
+  sel.innerHTML = allGroupsAdmin.map(g => `<option value="${g.id}">${g.group_name}</option>`).join('');
+  populateUndianRoundSelect();
+}
+
+function populateUndianRoundSelect(){
+  const roundSel = document.getElementById('undian-round-select');
+  roundSel.innerHTML = '';
+  for (let i = 1; i <= 24; i++) {
+    roundSel.innerHTML += `<option value="${i}">Putaran #${i}</option>`;
+  }
+}
+
+document.getElementById('undian-group-select').addEventListener('change', refreshEligibleInfo);
+document.getElementById('undian-round-select').addEventListener('change', refreshEligibleInfo);
+
+async function getEligibleWinners(groupId, roundNumber){
+  const { data: paidPayments, error: payErr } = await db
+    .from('payments')
+    .select('user_id, profiles:user_id(username)')
+    .eq('group_id', groupId)
+    .eq('round_number', roundNumber)
+    .eq('payment_status', 'paid');
+  if (payErr) throw payErr;
+
+  const { data: pastWinners, error: winErr } = await db
+    .from('arisan_periods')
+    .select('winner_id')
+    .eq('group_id', groupId)
+    .not('winner_id', 'is', null);
+  if (winErr) throw winErr;
+
+  const pastWinnerIds = new Set((pastWinners || []).map(w => w.winner_id));
+
+  const eligible = (paidPayments || []).filter(p => !pastWinnerIds.has(p.user_id));
+
+  const seen = new Set();
+  const uniqueEligible = [];
+  eligible.forEach(p => {
+    if (!seen.has(p.user_id)) { seen.add(p.user_id); uniqueEligible.push(p); }
+  });
+
+  return uniqueEligible;
+}
+
+async function refreshEligibleInfo(){
+  const groupId = document.getElementById('undian-group-select').value;
+  const roundNumber = parseInt(document.getElementById('undian-round-select').value);
+  const infoBox = document.getElementById('eligible-info');
+  if (!groupId) { infoBox.innerHTML = 'Pilih grup terlebih dahulu.'; return; }
+
+  try {
+    const eligible = await getEligibleWinners(groupId, roundNumber);
+    if (!eligible.length) {
+      infoBox.innerHTML = `⚠️ Tidak ada anggota yang berhak diundi pada putaran #${roundNumber} (belum lunas, atau semua sudah pernah menang).`;
+      document.getElementById('btn-kocok').disabled = true;
+    } else {
+      const names = eligible.map(e => e.profiles ? e.profiles.username : 'Anggota').join(', ');
+      infoBox.innerHTML = `<b>${eligible.length} anggota</b> berhak diundi: ${names}`;
+      document.getElementById('btn-kocok').disabled = false;
+    }
+  } catch (err) {
+    infoBox.innerHTML = 'Gagal memuat data kelayakan: ' + err.message;
+    document.getElementById('btn-kocok').disabled = true;
+  }
+}
+
+document.getElementById('btn-kocok').addEventListener('click', async () => {
+  const groupId = document.getElementById('undian-group-select').value;
+  const roundNumber = parseInt(document.getElementById('undian-round-select').value);
+  const groupObj = allGroupsAdmin.find(g => g.id === groupId);
+  if (!groupId || !groupObj) { toast('Pilih grup terlebih dahulu!', 'err'); return; }
+
+  const btn = document.getElementById('btn-kocok');
+  btn.disabled = true; btn.textContent = '🎲 Mengocok...';
+
+  try {
+    const eligible = await getEligibleWinners(groupId, roundNumber);
+    if (!eligible.length) {
+      toast('Tidak ada anggota yang berhak diundi pada putaran ini!', 'err');
+      return;
+    }
+
+    const winnerEntry = eligible[Math.floor(Math.random() * eligible.length)];
+    const winnerId = winnerEntry.user_id;
+    const winnerName = winnerEntry.profiles ? winnerEntry.profiles.username : 'Anggota';
+
+    const { error: insertErr } = await db.from('arisan_periods').insert([{
+      group_id: groupId,
+      round_number: roundNumber,
+      winner_id: winnerId,
+      draw_date: new Date().toISOString()
+    }]);
+    if (insertErr) throw insertErr;
+
+    const broadcastChannel = db.channel('arisan-winner-broadcast');
+    await broadcastChannel.subscribe();
+    await broadcastChannel.send({
+      type: 'broadcast',
+      event: 'winner_announced',
+      payload: { winner_name: winnerName, group_name: groupObj.group_name, round_number: roundNumber }
+    });
+
+    toast(`🎉 Pemenang putaran #${roundNumber}: ${winnerName}!`, 'ok');
+    await refreshEligibleInfo();
+    await loadWinnerHistory();
+
+  } catch (err) {
+    toast('Gagal melakukan undian: ' + err.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = '🎲 Kocok Sekarang!';
+  }
+});
+
+async function loadWinnerHistory(){
+  const list = document.getElementById('winner-history-list');
+  try {
+    const { data, error } = await db
+      .from('arisan_periods')
+      .select('*, profiles:winner_id(username), arisan_groups:group_id(group_name)')
+      .order('draw_date', { ascending: false })
+      .limit(30);
+    if (error) throw error;
+
+    if (!data || !data.length) {
+      list.innerHTML = `<div class="empty-note"><span class="ic">🎲</span>Belum ada riwayat undian.</div>`;
+      return;
+    }
+
+    list.innerHTML = data.map(h => {
+      const winnerName = h.profiles ? h.profiles.username : 'Anggota';
+      const groupName = h.arisan_groups ? h.arisan_groups.group_name : 'Grup';
+      const dateStr = h.draw_date ? new Date(h.draw_date).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' }) : '—';
+      return `<div class="history-row">
+        <div>
+          <div class="hr-name">🏆 ${winnerName}</div>
+          <div class="hr-meta">${groupName} · Putaran #${h.round_number}</div>
+        </div>
+        <div class="hr-meta">${dateStr}</div>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    list.innerHTML = `<div class="empty-note">Gagal memuat riwayat: ${err.message}</div>`;
+  }
+}
+
+db.channel('admin-payments-watch')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
+    loadVerificationTable();
+    loadDashboardStats();
+  })
+  .subscribe();
+</script>
 </body>
 </html>
