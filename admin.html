@@ -238,7 +238,8 @@ tbody tr:hover{background:var(--surface2)}
     <button class="tab-btn active" data-panel="dashboard">📊 Dashboard</button>
     <button class="tab-btn" data-panel="groups">📂 Kelola Grup</button>
     <button class="tab-btn" data-panel="verify">💳 Verifikasi Pembayaran</button>
-    <button class="tab-btn" data-panel="undian">🎲 Kocok Arisan</button>
+    <button class="tab-btn" data-panel="undian">📋 Urutan & Pemenang</button>
+    <button class="tab-btn" data-panel="members">👥 Kelola Anggota</button>
   </nav>
 
   <div class="main-content">
@@ -299,6 +300,66 @@ tbody tr:hover{background:var(--surface2)}
       <div class="history-list" id="winner-history-list"></div>
     </div>
 
+  <!-- PANEL URUTAN & PEMENANG (pengganti kocok otomatis) -->
+    <div class="panel" id="panel-undian">
+      <div class="sec-head"><h3>📋 Urutan Manual Pemenang Arisan</h3></div>
+
+      <div class="undian-card" style="margin-bottom:20px">
+        <h3>🏅 Tetapkan Urutan Pemenang</h3>
+        <p>Admin menentukan secara manual siapa yang mendapat arisan di setiap putaran.</p>
+        <div class="undian-select-row">
+          <div class="field">
+            <label style="color:rgba(255,255,255,.8)">Pilih Grup</label>
+            <select id="undian-group-select"></select>
+          </div>
+          <div class="field">
+            <label style="color:rgba(255,255,255,.8)">Putaran Ke-</label>
+            <select id="undian-round-select"></select>
+          </div>
+        </div>
+        <div style="margin-top:14px" id="manual-winner-area">
+          <label style="color:rgba(255,255,255,.8);font-size:12px;font-weight:700;display:block;margin-bottom:8px">Pilih Pemenang untuk Putaran Ini</label>
+          <select id="manual-winner-select" style="background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.2);color:#fff;width:100%;padding:11px;border-radius:8px;font-size:14px">
+            <option value="">— Pilih Anggota —</option>
+          </select>
+          <button class="btn-kocok" style="margin-top:12px;width:100%" id="btn-tetapkan">✅ Tetapkan Pemenang</button>
+        </div>
+        <div class="eligible-info" id="eligible-info" style="margin-top:10px"></div>
+      </div>
+
+      <div class="sec-head"><h3>🏆 Riwayat Pemenang</h3></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Pemenang</th><th>Grup</th><th>Putaran</th><th>Tanggal</th><th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="winner-history-list"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PANEL KELOLA ANGGOTA -->
+    <div class="panel" id="panel-members">
+      <div class="sec-head">
+        <h3>👥 Kelola Anggota per Grup</h3>
+        <select id="member-group-filter" style="padding:9px 14px;border-radius:8px;border:1.5px solid var(--border);font-size:13px;background:var(--surface2)">
+          <option value="">— Semua Grup —</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Nama Anggota</th><th>Grup</th><th>Bergabung</th><th>Aksi</th></tr>
+          </thead>
+          <tbody id="members-table-body">
+            <tr><td colspan="4" style="text-align:center;padding:30px;color:var(--ink-muted)">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -347,148 +408,142 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-let currentUser = null;
+let currentUser    = null;
 let currentProfile = null;
 let allGroupsAdmin = [];
 
+/* ── TOAST ── */
 function toast(msg, type){
   const box = document.getElementById('toast-box');
-  const el = document.createElement('div');
-  el.className = 'toast' + (type ? ' ' + type : '');
+  const el  = document.createElement('div');
+  el.className = 'toast' + (type ? ' '+type : '');
   el.textContent = msg;
   box.appendChild(el);
   requestAnimationFrame(()=> el.classList.add('show'));
-  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=> el.remove(), 300); }, 3200);
+  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=> el.remove(), 300); }, 3400);
 }
-function closeModal(name){ document.getElementById('modal-' + name).classList.remove('show'); }
+function closeModal(name){ document.getElementById('modal-'+name).classList.remove('show'); }
 
+/* ── LOGIN ── */
 document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const email = document.getElementById('login-email').value.trim();
+  const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
-  const btn = document.getElementById('btn-login');
-  const errBox = document.getElementById('login-err');
+  const btn      = document.getElementById('btn-login');
+  const errBox   = document.getElementById('login-err');
   errBox.textContent = '';
-  btn.disabled = true;
-  btn.textContent = 'Memverifikasi...';
+  btn.disabled = true; btn.textContent = 'Memverifikasi...';
 
   try {
     const { data, error } = await db.auth.signInWithPassword({ email, password });
     if (error) throw error;
 
+    // ANTI-406: pakai array, BUKAN .single()
     const { data: profileRows, error: profErr } = await db
-      .from('profiles')
-      .select('*')
-      .eq('id', data.user.id);
+      .from('profiles').select('*').eq('id', data.user.id);
     if (profErr) throw profErr;
-    if (!profileRows || profileRows.length === 0) {
-      throw new Error('Profil pengguna tidak ditemukan. Hubungi admin.');
-    }
-    const profile = profileRows[0];
+
+    const profile = (profileRows && profileRows.length > 0) ? profileRows[0] : null;
+    if (!profile) throw new Error('Profil tidak ditemukan.');
 
     if (profile.role !== 'admin') {
-      alert('Akses Ditolak! Akun ini bukan akun Administrator.');
+      alert('Akses Ditolak! Akun ini bukan Administrator.');
       await db.auth.signOut();
-      document.getElementById('login-form').reset();
-      btn.disabled = false;
-      btn.textContent = 'Masuk Panel Admin';
+      btn.disabled = false; btn.textContent = 'Masuk Panel Admin';
       return;
     }
-
-    currentUser = data.user;
+    currentUser    = data.user;
     currentProfile = profile;
     await enterAdminApp();
 
   } catch (err) {
-    let msg = 'Gagal masuk: ';
-    if (err.message && err.message.includes('Invalid login credentials')) {
-      msg += 'Email atau password salah.';
-    } else {
-      msg += err.message || 'Terjadi kesalahan.';
-    }
-    errBox.textContent = msg;
-    btn.disabled = false;
-    btn.textContent = 'Masuk Panel Admin';
+    errBox.textContent = err.message?.includes('Invalid login credentials')
+      ? 'Gagal masuk: Email atau password salah.'
+      : 'Gagal masuk: ' + (err.message || 'Terjadi kesalahan.');
+    btn.disabled = false; btn.textContent = 'Masuk Panel Admin';
   }
 });
+
+/* ── AUTO SESSION ── */
+(async () => {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) return;
+  const { data: rows } = await db.from('profiles').select('*').eq('id', session.user.id);
+  const profile = rows && rows.length > 0 ? rows[0] : null;
+  if (profile && profile.role === 'admin') {
+    currentUser    = session.user;
+    currentProfile = profile;
+    await enterAdminApp();
+  } else {
+    await db.auth.signOut();
+  }
+})();
 
 async function enterAdminApp(){
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-shell').classList.add('active');
-  await loadDashboardStats();
   await loadAllGroupsAdmin();
+  await loadDashboardStats();
   await loadVerificationTable();
-  populateUndianGroupSelect();
   await loadWinnerHistory();
+  await loadMembersTable();
+  populateUndianGroupSelect();
+  populateMemberGroupFilter();
 }
 
 document.getElementById('btn-logout').addEventListener('click', async () => {
-  await db.auth.signOut();
-  window.location.reload();
+  await db.auth.signOut(); window.location.reload();
 });
 
-(async () => {
-  const { data: { session } } = await db.auth.getSession();
-  if (session) {
-    const { data: profileRows, error } = await db.from('profiles').select('*').eq('id', session.user.id);
-    if (!error && profileRows && profileRows.length > 0) {
-      const profile = profileRows[0];
-      if (profile.role === 'admin') { window.location.href = 'admin.html'; return; }
-      currentUser = session.user;
-      currentProfile = profile;
-      await enterApp();
-    }
-  }
-})();
-
+/* ── TAB SWITCHING ── */
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+    document.getElementById('panel-'+btn.dataset.panel).classList.add('active');
   });
 });
 
+/* ── DASHBOARD ── */
 async function loadDashboardStats(){
   try {
-    const [{ count: groupCount }, { count: memberCount }, { count: pendingCount }, { count: paidCount }] = await Promise.all([
-      db.from('arisan_groups').select('*', { count: 'exact', head: true }),
-      db.from('group_members').select('*', { count: 'exact', head: true }),
-      db.from('payments').select('*', { count: 'exact', head: true }).eq('payment_status', 'pending_verification'),
-      db.from('payments').select('*', { count: 'exact', head: true }).eq('payment_status', 'paid')
+    const [{ count: gc },{ count: mc },{ count: pc },{ count: lc }] = await Promise.all([
+      db.from('arisan_groups').select('*',{count:'exact',head:true}),
+      db.from('group_members').select('*',{count:'exact',head:true}),
+      db.from('payments').select('*',{count:'exact',head:true}).eq('payment_status','pending_verification'),
+      db.from('payments').select('*',{count:'exact',head:true}).eq('payment_status','paid'),
     ]);
-    document.getElementById('stat-groups').textContent = groupCount ?? 0;
-    document.getElementById('stat-members').textContent = memberCount ?? 0;
-    document.getElementById('stat-pending').textContent = pendingCount ?? 0;
-    document.getElementById('stat-paid').textContent = paidCount ?? 0;
-
-    const { data: recent } = await db.from('arisan_groups').select('*').order('created_at', { ascending: false }).limit(3);
-    renderGroupGrid('dashboard-recent-groups', recent || [], false);
-  } catch (err) {
-    console.error('Dashboard error:', err);
-  }
+    document.getElementById('stat-groups').textContent  = gc ?? 0;
+    document.getElementById('stat-members').textContent = mc ?? 0;
+    document.getElementById('stat-pending').textContent = pc ?? 0;
+    document.getElementById('stat-paid').textContent    = lc ?? 0;
+    const { data: recent } = await db.from('arisan_groups').select('*').order('created_at',{ascending:false}).limit(3);
+    renderGroupGrid('dashboard-recent-groups', recent||[], false);
+  } catch(err){ console.error('Dashboard error:',err); }
 }
 
+/* ── GRUP ── */
 async function loadAllGroupsAdmin(){
-  const { data, error } = await db.from('arisan_groups').select('*').order('created_at', { ascending: false });
-  if (error) { toast('Gagal memuat grup: ' + error.message, 'err'); return; }
+  const { data, error } = await db.from('arisan_groups').select('*').order('created_at',{ascending:false});
+  if (error){ toast('Gagal memuat grup: '+error.message,'err'); return; }
   allGroupsAdmin = data || [];
   renderGroupGrid('admin-group-grid', allGroupsAdmin, true);
 }
 
 function renderGroupGrid(containerId, list, withActions){
   const grid = document.getElementById(containerId);
-  if (!list.length) {
-    grid.innerHTML = `<div class="empty-note" style="grid-column:1/-1"><span class="ic">📂</span>Belum ada grup arisan. Buat grup baru untuk memulai.</div>`;
+  if (!list.length){
+    grid.innerHTML = `<div class="empty-note" style="grid-column:1/-1"><span class="ic">📂</span>Belum ada grup arisan.</div>`;
     return;
   }
   grid.innerHTML = list.map(g => {
-    const cover = g.group_cover_url ? `<img src="${g.group_cover_url}" alt="${g.group_name}">` : `🪙`;
+    const cover   = g.group_cover_url ? `<img src="${g.group_cover_url}" alt="">` : `🪙`;
     const actions = withActions ? `
       <div class="group-actions">
         <button class="btn-sm primary" onclick="editGroup('${g.id}')">✏️ Edit</button>
-        <button class="btn-sm" onclick="deleteGroup('${g.id}','${(g.group_name||'').replace(/'/g,"\\'")}')">🗑️ Hapus</button>
+        <button class="btn-sm" style="border-color:var(--danger);color:var(--danger)"
+          onclick="deleteGroup('${g.id}','${(g.group_name||'').replace(/'/g,"\\'")}')">🗑️ Hapus</button>
       </div>` : '';
     return `<div class="group-card">
       <div class="group-cover">${cover}</div>
@@ -506,12 +561,8 @@ function renderGroupGrid(containerId, list, withActions){
 
 document.getElementById('btn-new-group').addEventListener('click', () => {
   document.getElementById('group-modal-title').textContent = 'Buat Grup Arisan Baru';
-  document.getElementById('group-edit-id').value = '';
-  document.getElementById('group-name-input').value = '';
-  document.getElementById('group-desc-input').value = '';
-  document.getElementById('group-amount-input').value = '';
-  document.getElementById('group-slots-input').value = '';
-  document.getElementById('group-cover-input').value = '';
+  ['group-edit-id','group-name-input','group-desc-input','group-amount-input','group-slots-input','group-cover-input']
+    .forEach(id => document.getElementById(id).value = '');
   document.getElementById('modal-group').classList.add('show');
 });
 
@@ -519,107 +570,109 @@ function editGroup(groupId){
   const g = allGroupsAdmin.find(x => x.id === groupId);
   if (!g) return;
   document.getElementById('group-modal-title').textContent = 'Edit Grup Arisan';
-  document.getElementById('group-edit-id').value = g.id;
-  document.getElementById('group-name-input').value = g.group_name || '';
-  document.getElementById('group-desc-input').value = g.description || '';
+  document.getElementById('group-edit-id').value      = g.id;
+  document.getElementById('group-name-input').value   = g.group_name || '';
+  document.getElementById('group-desc-input').value   = g.description || '';
   document.getElementById('group-amount-input').value = g.contribution_amount || '';
-  document.getElementById('group-slots-input').value = g.max_slots || '';
-  document.getElementById('group-cover-input').value = g.group_cover_url || '';
+  document.getElementById('group-slots-input').value  = g.max_slots || '';
+  document.getElementById('group-cover-input').value  = g.group_cover_url || '';
   document.getElementById('modal-group').classList.add('show');
 }
 
 document.getElementById('btn-save-group').addEventListener('click', async () => {
-  const id = document.getElementById('group-edit-id').value;
-  const group_name = document.getElementById('group-name-input').value.trim();
-  const description = document.getElementById('group-desc-input').value.trim();
-  const contribution_amount = parseFloat(document.getElementById('group-amount-input').value) || 0;
-  const max_slots = parseInt(document.getElementById('group-slots-input').value) || 0;
-  const group_cover_url = document.getElementById('group-cover-input').value.trim() || null;
-
-  if (!group_name) { toast('Nama grup wajib diisi!', 'err'); return; }
-  if (!contribution_amount) { toast('Nominal iuran wajib diisi!', 'err'); return; }
+  const id                  = document.getElementById('group-edit-id').value;
+  const group_name          = document.getElementById('group-name-input').value.trim();
+  const description         = document.getElementById('group-desc-input').value.trim();
+  const contribution_amount = parseFloat(document.getElementById('group-amount-input').value)||0;
+  const max_slots           = parseInt(document.getElementById('group-slots-input').value)||0;
+  const group_cover_url     = document.getElementById('group-cover-input').value.trim()||null;
+  if (!group_name)          { toast('Nama grup wajib diisi!','err'); return; }
+  if (!contribution_amount) { toast('Nominal iuran wajib diisi!','err'); return; }
 
   const btn = document.getElementById('btn-save-group');
   btn.disabled = true; btn.textContent = 'Menyimpan...';
-
   try {
     if (id) {
-      const { error } = await db.from('arisan_groups').update({
-        group_name, description, contribution_amount, max_slots, group_cover_url
-      }).eq('id', id);
+      const { error } = await db.from('arisan_groups')
+        .update({ group_name, description, contribution_amount, max_slots, group_cover_url }).eq('id', id);
       if (error) throw error;
-      toast('Grup berhasil diperbarui!', 'ok');
+      toast('Grup berhasil diperbarui!','ok');
     } else {
-      const { error } = await db.from('arisan_groups').insert([{
-        group_name, description, contribution_amount, max_slots, group_cover_url
-      }]);
+      const { error } = await db.from('arisan_groups')
+        .insert([{ group_name, description, contribution_amount, max_slots, group_cover_url }]);
       if (error) throw error;
-      toast('Grup arisan baru berhasil dibuat!', 'ok');
+      toast('Grup baru berhasil dibuat!','ok');
     }
     closeModal('group');
     await loadAllGroupsAdmin();
     await loadDashboardStats();
     populateUndianGroupSelect();
-  } catch (err) {
-    toast('Gagal menyimpan grup: ' + err.message, 'err');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Simpan Grup';
-  }
+    populateMemberGroupFilter();
+  } catch(err){ toast('Gagal simpan: '+err.message,'err'); }
+  finally { btn.disabled = false; btn.textContent = 'Simpan Grup'; }
 });
 
 async function deleteGroup(groupId, groupName){
-  if (!confirm(`Hapus grup "${groupName}"? Semua data terkait (anggota, pesan, pembayaran) mungkin ikut terdampak.`)) return;
+  if (!confirm(`Hapus grup "${groupName}"?\nSemua data terkait akan terdampak.`)) return;
   try {
     const { error } = await db.from('arisan_groups').delete().eq('id', groupId);
     if (error) throw error;
-    toast('Grup berhasil dihapus.', 'ok');
+    toast('Grup berhasil dihapus.','ok');
     await loadAllGroupsAdmin();
     await loadDashboardStats();
     populateUndianGroupSelect();
-  } catch (err) {
-    toast('Gagal menghapus grup: ' + err.message, 'err');
-  }
+    populateMemberGroupFilter();
+  } catch(err){ toast('Gagal hapus: '+err.message,'err'); }
 }
 
+/* ── VERIFIKASI PEMBAYARAN ── */
 async function loadVerificationTable(){
   const tbody = document.getElementById('verify-table-body');
   try {
-    const { data, error } = await db
-      .from('payments')
+    const { data, error } = await db.from('payments')
       .select('*, profiles:user_id(username), arisan_groups:group_id(group_name, contribution_amount)')
-      .order('created_at', { ascending: false });
+      .order('created_at',{ascending:false});
     if (error) throw error;
-
-    if (!data || !data.length) {
+    if (!data || !data.length){
       tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--ink-muted)">Belum ada data pembayaran.</td></tr>`;
       return;
     }
 
+    const now     = new Date();
+    const day10   = new Date(now.getFullYear(), now.getMonth(), 10);
+    const isPast10 = now > day10;
+
     tbody.innerHTML = data.map(p => {
-      const uname = p.profiles ? p.profiles.username : 'Anggota';
-      const gname = p.arisan_groups ? p.arisan_groups.group_name : '—';
-      const amount = p.arisan_groups ? p.arisan_groups.contribution_amount : 0;
-      const statusLabel = { unpaid: 'Belum Bayar', pending_verification: 'Menunggu', paid: 'Lunas' }[p.payment_status] || p.payment_status;
-      const proofCell = p.proof_url
+      const uname  = p.profiles?.username || 'Anggota';
+      const gname  = p.arisan_groups?.group_name || '—';
+      const amount = p.arisan_groups?.contribution_amount || 0;
+
+      // Penanda merah jika belum lunas setelah tanggal 10
+      const isOverdue = isPast10 && p.payment_status !== 'paid';
+      const overdueTag = isOverdue
+        ? `<span style="color:var(--danger);font-size:11px;font-weight:700;display:block">⚠️ Jatuh Tempo</span>` : '';
+
+      const statusLabel = { unpaid:'Belum Bayar', pending_verification:'Menunggu', paid:'Lunas' }[p.payment_status] || p.payment_status;
+      const proofCell   = p.proof_url
         ? `<img src="${p.proof_url}" class="proof-thumb" onclick="openLightbox('${p.proof_url}')" alt="bukti">`
         : `<span style="color:var(--ink-muted);font-size:12px">—</span>`;
-      const actionCell = p.payment_status === 'pending_verification'
+      const actionCell  = p.payment_status === 'pending_verification'
         ? `<button class="btn-approve" onclick="verifyPayment('${p.id}','paid')">✓ Setujui</button>
-           <button class="btn-reject" onclick="verifyPayment('${p.id}','unpaid')">✕ Tolak</button>`
+           <button class="btn-reject"  onclick="verifyPayment('${p.id}','unpaid')">✕ Tolak</button>`
         : `<span style="font-size:12px;color:var(--ink-muted)">—</span>`;
 
-      return `<tr id="prow-${p.id}">
-        <td><strong>${uname}</strong></td>
+      return `<tr id="prow-${p.id}" ${isOverdue ? 'style="background:rgba(192,57,43,0.04)"' : ''}>
+        <td><strong>${uname}</strong>${overdueTag}</td>
         <td>${gname}</td>
         <td>#${p.round_number}</td>
-        <td>Rp${Number(amount||0).toLocaleString('id-ID')}</td>
+        <td>Rp${Number(amount).toLocaleString('id-ID')}</td>
         <td>${proofCell}</td>
         <td><span class="status-pill ${p.payment_status}">${statusLabel}</span></td>
         <td>${actionCell}</td>
       </tr>`;
     }).join('');
-  } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--danger)">Gagal memuat: ${err.message}</td></tr>`;
+  } catch(err){
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--danger)">Gagal: ${err.message}</td></tr>`;
   }
 }
 
@@ -630,167 +683,230 @@ function openLightbox(url){
 
 async function verifyPayment(paymentId, newStatus){
   try {
-    const { error } = await db.from('payments').update({ payment_status: newStatus }).eq('id', paymentId);
+    const updateData = { payment_status: newStatus };
+    // Jika ditolak, tambahkan catatan agar user tahu
+    if (newStatus === 'unpaid') updateData.rejection_note = 'Pembayaran ditolak Admin, silakan upload ulang bukti transfer.';
+    const { error } = await db.from('payments').update(updateData).eq('id', paymentId);
     if (error) throw error;
-    toast(newStatus === 'paid' ? 'Pembayaran disetujui!' : 'Pembayaran ditolak, status dikembalikan ke belum bayar.', 'ok');
+    toast(newStatus === 'paid' ? '✅ Pembayaran disetujui!' : '❌ Pembayaran ditolak, status direset.', 'ok');
     await loadVerificationTable();
     await loadDashboardStats();
-  } catch (err) {
-    toast('Gagal memperbarui status: ' + err.message, 'err');
-  }
+  } catch(err){ toast('Gagal update: '+err.message,'err'); }
 }
 
+/* ── URUTAN MANUAL PEMENANG ── */
 function populateUndianGroupSelect(){
   const sel = document.getElementById('undian-group-select');
-  sel.innerHTML = allGroupsAdmin.map(g => `<option value="${g.id}">${g.group_name}</option>`).join('');
-  populateUndianRoundSelect();
-}
-
-function populateUndianRoundSelect(){
+  sel.innerHTML = '<option value="">— Pilih Grup —</option>' +
+    allGroupsAdmin.map(g => `<option value="${g.id}">${g.group_name}</option>`).join('');
   const roundSel = document.getElementById('undian-round-select');
   roundSel.innerHTML = '';
-  for (let i = 1; i <= 24; i++) {
-    roundSel.innerHTML += `<option value="${i}">Putaran #${i}</option>`;
-  }
+  for (let i = 1; i <= 24; i++) roundSel.innerHTML += `<option value="${i}">Putaran #${i}</option>`;
 }
 
 document.getElementById('undian-group-select').addEventListener('change', refreshEligibleInfo);
 document.getElementById('undian-round-select').addEventListener('change', refreshEligibleInfo);
 
-async function getEligibleWinners(groupId, roundNumber){
-  const { data: paidPayments, error: payErr } = await db
-    .from('payments')
-    .select('user_id, profiles:user_id(username)')
-    .eq('group_id', groupId)
-    .eq('round_number', roundNumber)
-    .eq('payment_status', 'paid');
-  if (payErr) throw payErr;
-
-  const { data: pastWinners, error: winErr } = await db
-    .from('arisan_periods')
-    .select('winner_id')
-    .eq('group_id', groupId)
-    .not('winner_id', 'is', null);
-  if (winErr) throw winErr;
-
-  const pastWinnerIds = new Set((pastWinners || []).map(w => w.winner_id));
-
-  const eligible = (paidPayments || []).filter(p => !pastWinnerIds.has(p.user_id));
-
-  const seen = new Set();
-  const uniqueEligible = [];
-  eligible.forEach(p => {
-    if (!seen.has(p.user_id)) { seen.add(p.user_id); uniqueEligible.push(p); }
-  });
-
-  return uniqueEligible;
-}
-
 async function refreshEligibleInfo(){
-  const groupId = document.getElementById('undian-group-select').value;
+  const groupId     = document.getElementById('undian-group-select').value;
   const roundNumber = parseInt(document.getElementById('undian-round-select').value);
-  const infoBox = document.getElementById('eligible-info');
-  if (!groupId) { infoBox.innerHTML = 'Pilih grup terlebih dahulu.'; return; }
+  const infoBox     = document.getElementById('eligible-info');
+  const winnerSel   = document.getElementById('manual-winner-select');
+  winnerSel.innerHTML = '<option value="">— Pilih Anggota —</option>';
+  if (!groupId){ infoBox.innerHTML = ''; return; }
 
   try {
-    const eligible = await getEligibleWinners(groupId, roundNumber);
-    if (!eligible.length) {
-      infoBox.innerHTML = `⚠️ Tidak ada anggota yang berhak diundi pada putaran #${roundNumber} (belum lunas, atau semua sudah pernah menang).`;
-      document.getElementById('btn-kocok').disabled = true;
-    } else {
-      const names = eligible.map(e => e.profiles ? e.profiles.username : 'Anggota').join(', ');
-      infoBox.innerHTML = `<b>${eligible.length} anggota</b> berhak diundi: ${names}`;
-      document.getElementById('btn-kocok').disabled = false;
-    }
-  } catch (err) {
-    infoBox.innerHTML = 'Gagal memuat data kelayakan: ' + err.message;
-    document.getElementById('btn-kocok').disabled = true;
-  }
-}
+    // Ambil semua anggota grup ini dari group_members join profiles
+    const { data: members, error: mErr } = await db.from('group_members')
+      .select('user_id, profiles:user_id(username)')
+      .eq('group_id', groupId);
+    if (mErr) throw mErr;
 
-document.getElementById('btn-kocok').addEventListener('click', async () => {
-  const groupId = document.getElementById('undian-group-select').value;
-  const roundNumber = parseInt(document.getElementById('undian-round-select').value);
-  const groupObj = allGroupsAdmin.find(g => g.id === groupId);
-  if (!groupId || !groupObj) { toast('Pilih grup terlebih dahulu!', 'err'); return; }
+    // Anggota yang sudah pernah menang di grup ini
+    const { data: pastWinners } = await db.from('arisan_periods')
+      .select('winner_id').eq('group_id', groupId).not('winner_id','is',null);
+    const pastIds = new Set((pastWinners||[]).map(w => w.winner_id));
 
-  const btn = document.getElementById('btn-kocok');
-  btn.disabled = true; btn.textContent = '🎲 Mengocok...';
+    // Putaran ini sudah ada pemenang?
+    const { data: thisRound } = await db.from('arisan_periods')
+      .select('id, winner_id, profiles:winner_id(username)')
+      .eq('group_id', groupId).eq('round_number', roundNumber);
 
-  try {
-    const eligible = await getEligibleWinners(groupId, roundNumber);
-    if (!eligible.length) {
-      toast('Tidak ada anggota yang berhak diundi pada putaran ini!', 'err');
+    if (thisRound && thisRound.length > 0) {
+      const wName = thisRound[0].profiles?.username || 'Anggota';
+      infoBox.innerHTML = `✅ Putaran #${roundNumber} sudah memiliki pemenang: <b>${wName}</b>`;
+      document.getElementById('btn-tetapkan').disabled = true;
       return;
     }
 
-    const winnerEntry = eligible[Math.floor(Math.random() * eligible.length)];
-    const winnerId = winnerEntry.user_id;
-    const winnerName = winnerEntry.profiles ? winnerEntry.profiles.username : 'Anggota';
+    // Filter anggota yang belum pernah menang
+    const eligible = (members||[]).filter(m => !pastIds.has(m.user_id));
+    if (!eligible.length){
+      infoBox.innerHTML = `⚠️ Semua anggota grup ini sudah pernah menang.`;
+      document.getElementById('btn-tetapkan').disabled = true;
+      return;
+    }
 
-    const { error: insertErr } = await db.from('arisan_periods').insert([{
-      group_id: groupId,
-      round_number: roundNumber,
-      winner_id: winnerId,
-      draw_date: new Date().toISOString()
-    }]);
-    if (insertErr) throw insertErr;
-
-    const broadcastChannel = db.channel('arisan-winner-broadcast');
-    await broadcastChannel.subscribe();
-    await broadcastChannel.send({
-      type: 'broadcast',
-      event: 'winner_announced',
-      payload: { winner_name: winnerName, group_name: groupObj.group_name, round_number: roundNumber }
+    eligible.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value       = m.user_id;
+      opt.textContent = m.profiles?.username || m.user_id;
+      winnerSel.appendChild(opt);
     });
 
-    toast(`🎉 Pemenang putaran #${roundNumber}: ${winnerName}!`, 'ok');
-    await refreshEligibleInfo();
-    await loadWinnerHistory();
+    infoBox.innerHTML  = `<b>${eligible.length} anggota</b> belum pernah menang dan bisa ditetapkan.`;
+    document.getElementById('btn-tetapkan').disabled = false;
 
-  } catch (err) {
-    toast('Gagal melakukan undian: ' + err.message, 'err');
-  } finally {
-    btn.disabled = false; btn.textContent = '🎲 Kocok Sekarang!';
-  }
-});
-
-async function loadWinnerHistory(){
-  const list = document.getElementById('winner-history-list');
-  try {
-    const { data, error } = await db
-      .from('arisan_periods')
-      .select('*, profiles:winner_id(username), arisan_groups:group_id(group_name)')
-      .order('draw_date', { ascending: false })
-      .limit(30);
-    if (error) throw error;
-
-    if (!data || !data.length) {
-      list.innerHTML = `<div class="empty-note"><span class="ic">🎲</span>Belum ada riwayat undian.</div>`;
-      return;
-    }
-
-    list.innerHTML = data.map(h => {
-      const winnerName = h.profiles ? h.profiles.username : 'Anggota';
-      const groupName = h.arisan_groups ? h.arisan_groups.group_name : 'Grup';
-      const dateStr = h.draw_date ? new Date(h.draw_date).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' }) : '—';
-      return `<div class="history-row">
-        <div>
-          <div class="hr-name">🏆 ${winnerName}</div>
-          <div class="hr-meta">${groupName} · Putaran #${h.round_number}</div>
-        </div>
-        <div class="hr-meta">${dateStr}</div>
-      </div>`;
-    }).join('');
-  } catch (err) {
-    list.innerHTML = `<div class="empty-note">Gagal memuat riwayat: ${err.message}</div>`;
+  } catch(err){
+    infoBox.innerHTML = 'Gagal memuat: '+err.message;
   }
 }
 
-db.channel('admin-payments-watch')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
-    loadVerificationTable();
+document.getElementById('btn-tetapkan').addEventListener('click', async () => {
+  const groupId     = document.getElementById('undian-group-select').value;
+  const roundNumber = parseInt(document.getElementById('undian-round-select').value);
+  const winnerId    = document.getElementById('manual-winner-select').value;
+  const winnerName  = document.getElementById('manual-winner-select').selectedOptions[0]?.text || 'Anggota';
+
+  if (!groupId)   { toast('Pilih grup terlebih dahulu!','err'); return; }
+  if (!winnerId)  { toast('Pilih anggota pemenang!','err'); return; }
+
+  if (!confirm(`Tetapkan "${winnerName}" sebagai pemenang Putaran #${roundNumber}?\nTindakan ini tersimpan ke database.`)) return;
+
+  const btn = document.getElementById('btn-tetapkan');
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+  try {
+    const { error } = await db.from('arisan_periods').insert([{
+      group_id:     groupId,
+      round_number: roundNumber,
+      winner_id:    winnerId,
+      draw_date:    new Date().toISOString()
+    }]);
+    if (error) throw error;
+    toast(`🎉 ${winnerName} ditetapkan sebagai pemenang putaran #${roundNumber}!`,'ok');
+    await refreshEligibleInfo();
+    await loadWinnerHistory();
+  } catch(err){ toast('Gagal tetapkan: '+err.message,'err'); }
+  finally { btn.disabled = false; btn.textContent = '✅ Tetapkan Pemenang'; }
+});
+
+/* ── RIWAYAT PEMENANG ── */
+async function loadWinnerHistory(){
+  const tbody = document.getElementById('winner-history-list');
+  try {
+    const { data, error } = await db.from('arisan_periods')
+      .select('*, profiles:winner_id(username), arisan_groups:group_id(group_name)')
+      .order('draw_date',{ascending:false}).limit(50);
+    if (error) throw error;
+
+    if (!data || !data.length){
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--ink-muted)">Belum ada riwayat pemenang.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = data.map(h => {
+      const wName   = h.profiles?.username || 'Anggota';
+      const gName   = h.arisan_groups?.group_name || '—';
+      const dateStr = h.draw_date ? new Date(h.draw_date).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'}) : '—';
+      return `<tr>
+        <td><strong>🏆 ${wName}</strong></td>
+        <td>${gName}</td>
+        <td>#${h.round_number}</td>
+        <td>${dateStr}</td>
+        <td>
+          <button class="btn-sm" style="border-color:var(--danger);color:var(--danger)"
+            onclick="resetWinner('${h.id}','${wName}','${h.round_number}')">
+            🔄 Reset
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(err){
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--danger);padding:20px">Gagal: ${err.message}</td></tr>`;
+  }
+}
+
+async function resetWinner(periodId, winnerName, roundNumber){
+  if (!confirm(`Reset pemenang "${winnerName}" di putaran #${roundNumber}?\n\nData pemenang dihapus dari arisan_periods.\nStatus pembayaran TIDAK berubah (tetap Lunas).`)) return;
+  try {
+    const { error } = await db.from('arisan_periods').delete().eq('id', periodId);
+    if (error) throw error;
+    toast(`✅ Riwayat pemenang putaran #${roundNumber} berhasil direset.`,'ok');
+    await loadWinnerHistory();
+    await refreshEligibleInfo();
+  } catch(err){ toast('Gagal reset: '+err.message,'err'); }
+}
+
+/* ── KELOLA ANGGOTA ── */
+async function loadMembersTable(filterGroupId = ''){
+  const tbody = document.getElementById('members-table-body');
+  tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--ink-muted)">Memuat...</td></tr>`;
+  try {
+    let query = db.from('group_members')
+      .select('id, user_id, group_id, created_at, profiles:user_id(username), arisan_groups:group_id(group_name)')
+      .order('created_at',{ascending:false});
+    if (filterGroupId) query = query.eq('group_id', filterGroupId);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    if (!data || !data.length){
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:30px;color:var(--ink-muted)">Tidak ada anggota ditemukan.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = data.map(m => {
+      const uname   = m.profiles?.username || m.user_id;
+      const gname   = m.arisan_groups?.group_name || '—';
+      const joinStr = m.created_at ? new Date(m.created_at).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'}) : '—';
+      return `<tr>
+        <td><strong>${uname}</strong></td>
+        <td>${gname}</td>
+        <td>${joinStr}</td>
+        <td>
+          <button class="btn-sm" style="border-color:var(--danger);color:var(--danger)"
+            onclick="kickMember('${m.id}','${uname}','${gname}')">
+            🚫 Kick
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(err){
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--danger);padding:20px">Gagal: ${err.message}</td></tr>`;
+  }
+}
+
+async function kickMember(memberId, userName, groupName){
+  if (!confirm(`Keluarkan "${userName}" dari grup "${groupName}"?\n\nData pembayaran anggota ini TIDAK akan dihapus.`)) return;
+  try {
+    const { error } = await db.from('group_members').delete().eq('id', memberId);
+    if (error) throw error;
+    toast(`✅ ${userName} berhasil dikeluarkan dari ${groupName}.`,'ok');
+    const filterVal = document.getElementById('member-group-filter').value;
+    await loadMembersTable(filterVal);
+    await loadDashboardStats();
+  } catch(err){ toast('Gagal kick: '+err.message,'err'); }
+}
+
+function populateMemberGroupFilter(){
+  const sel = document.getElementById('member-group-filter');
+  sel.innerHTML = '<option value="">— Semua Grup —</option>' +
+    allGroupsAdmin.map(g => `<option value="${g.id}">${g.group_name}</option>`).join('');
+}
+
+document.getElementById('member-group-filter').addEventListener('change', function(){
+  loadMembersTable(this.value);
+});
+
+/* ── REALTIME ── */
+db.channel('admin-realtime-watch')
+  .on('postgres_changes',{ event:'*', schema:'public', table:'payments' }, ()=>{
+    loadVerificationTable(); loadDashboardStats();
+  })
+  .on('postgres_changes',{ event:'*', schema:'public', table:'group_members' }, ()=>{
+    loadMembersTable(document.getElementById('member-group-filter').value);
     loadDashboardStats();
+  })
+  .on('postgres_changes',{ event:'*', schema:'public', table:'arisan_periods' }, ()=>{
+    loadWinnerHistory();
   })
   .subscribe();
 </script>
