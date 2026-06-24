@@ -376,12 +376,15 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     const { data, error } = await db.auth.signInWithPassword({ email, password });
     if (error) throw error;
 
-    const { data: profile, error: profErr } = await db
+    const { data: profileRows, error: profErr } = await db
       .from('profiles')
       .select('*')
-      .eq('id', data.user.id)
-      .single();
+      .eq('id', data.user.id);
     if (profErr) throw profErr;
+    if (!profileRows || profileRows.length === 0) {
+      throw new Error('Profil pengguna tidak ditemukan. Hubungi admin.');
+    }
+    const profile = profileRows[0];
 
     if (profile.role !== 'admin') {
       alert('Akses Ditolak! Akun ini bukan akun Administrator.');
@@ -427,13 +430,13 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 (async () => {
   const { data: { session } } = await db.auth.getSession();
   if (session) {
-    const { data: profile, error } = await db.from('profiles').select('*').eq('id', session.user.id).single();
-    if (!error && profile && profile.role === 'admin') {
+    const { data: profileRows, error } = await db.from('profiles').select('*').eq('id', session.user.id);
+    if (!error && profileRows && profileRows.length > 0) {
+      const profile = profileRows[0];
+      if (profile.role === 'admin') { window.location.href = 'admin.html'; return; }
       currentUser = session.user;
       currentProfile = profile;
-      await enterAdminApp();
-    } else if (!error && profile) {
-      await db.auth.signOut();
+      await enterApp();
     }
   }
 })();
