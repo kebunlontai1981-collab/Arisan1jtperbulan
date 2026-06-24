@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arisan Keluarga & Komunitas</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<!-- ══ AUTH SCREEN ══ -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-mark">A</div>
+      <h1>Arisan</h1>
+      <p>Kelola arisan keluarga & komunitas</p>
+    </div>
+    <form id="login-form" class="auth-form">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="email@arisan.com" required>
+      </div>
+      <div class="form-group">
+        <label>Kata Sandi</label>
+        <input type="password" id="login-password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="login-btn">
+        <span>Masuk</span>
+      </button>
+      <p id="auth-error" class="auth-error"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ══ -->
+<div id="app" class="app hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-mark sm">A</div>
+      <span class="sidebar-title">Arisan</span>
+      <button class="sidebar-close" id="sidebar-close">✕</button>
+    </div>
+    <div class="user-card" id="user-card">
+      <div class="user-avatar" id="nav-avatar"></div>
+      <div class="user-info">
+        <div class="user-name" id="nav-username">—</div>
+        <div class="user-role" id="nav-role">—</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-page="groups">
+        <span class="nav-icon">🏠</span> Grup Arisan
+      </a>
+      <a class="nav-item" data-page="payments">
+        <span class="nav-icon">💳</span> Iuran Saya
+      </a>
+      <a class="nav-item" data-page="history">
+        <span class="nav-icon">📜</span> Riwayat
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn btn-ghost" id="logout-btn">⬅ Keluar</button>
+    </div>
+  </aside>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <button class="hamburger" id="hamburger">☰</button>
+    <h2 class="topbar-title" id="topbar-title">Grup Arisan</h2>
+    <div class="topbar-right">
+      <div class="notif-dot hidden" id="notif-dot"></div>
+    </div>
+  </div>
+
+  <!-- PAGES -->
+  <main class="main-content">
+
+    <!-- PAGE: GROUPS -->
+    <div class="page active" id="page-groups">
+      <div class="page-header">
+        <h2>Grup Arisan</h2>
+        <p>Pilih grup untuk bergabung atau lihat detail</p>
+      </div>
+      <div class="groups-grid" id="groups-grid">
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
+      </div>
+    </div>
+
+    <!-- PAGE: PAYMENTS -->
+    <div class="page hidden" id="page-payments">
+      <div class="page-header">
+        <h2>Status Iuran Saya</h2>
+        <p>Pantau status pembayaran di setiap grup</p>
+      </div>
+      <div id="payments-list"></div>
+    </div>
+
+    <!-- PAGE: HISTORY -->
+    <div class="page hidden" id="page-history">
+      <div class="page-header">
+        <h2>Riwayat Pemenang</h2>
+        <p>Rekap pengundian arisan sebelumnya</p>
+      </div>
+      <div id="history-list"></div>
+    </div>
+
+    <!-- PAGE: GROUP DETAIL (Chat + Info) -->
+    <div class="page hidden" id="page-group-detail">
+      <div class="group-detail-layout">
+        <!-- Left: Info -->
+        <div class="group-info-panel" id="group-info-panel"></div>
+        <!-- Right: Chat -->
+        <div class="chat-panel">
+          <div class="chat-header">
+            <h3 id="chat-group-name">—</h3>
+            <span class="online-badge">🟢 Live</span>
+          </div>
+          <div class="chat-messages" id="chat-messages">
+            <div class="chat-empty">Belum ada pesan. Mulai percakapan!</div>
+          </div>
+          <div class="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Tulis pesan..." maxlength="500">
+            <button class="btn btn-primary" id="send-btn">Kirim</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL: Upload Bukti Bayar -->
+<div class="modal-overlay hidden" id="payment-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Upload Bukti Transfer</h3>
+      <button class="modal-close" id="payment-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="upload-area" id="upload-area">
+        <div class="upload-icon">📎</div>
+        <p>Klik atau seret foto bukti transfer</p>
+        <small>Gambar akan dikompres otomatis di bawah 200KB</small>
+        <input type="file" id="receipt-input" accept="image/*" class="upload-input">
+      </div>
+      <div id="upload-preview" class="upload-preview hidden">
+        <img id="preview-img" src="" alt="Preview">
+        <div class="upload-meta">
+          <span id="upload-size">—</span>
+          <span id="upload-status">Siap diupload</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="cancel-upload">Batal</button>
+      <button class="btn btn-primary" id="confirm-upload">Upload & Kirim</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast hidden" id="toast"></div>
+
+<!-- WINNER ANNOUNCEMENT -->
+<div class="winner-overlay hidden" id="winner-overlay">
+  <div class="winner-card">
+    <div class="winner-confetti" id="confetti-area"></div>
+    <div class="winner-icon">🎉</div>
+    <h2>Selamat!</h2>
+    <p>Pemenang Arisan Periode Ini:</p>
+    <div class="winner-name" id="winner-name-display">—</div>
+    <button class="btn btn-primary" onclick="closeWinner()">Tutup</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
