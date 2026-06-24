@@ -1093,11 +1093,135 @@ async function sendDMMessage(){
 /* ══════════════════════════════════════
    IURAN / BILLS
 ══════════════════════════════════════ */
+
+// Render form pilih grup + nomor urut + upload bukti.
+// Form ini independen dari data payments yang sudah ada — selalu tampil
+// selama user adalah anggota minimal 1 grup arisan.
+function renderUploadFormHtml(){
+  const myGroups = allGroups.filter(g => myGroupIds.includes(g.id));
+
+  if (!myGroups.length){
+    return `<div class="empty-note"><span class="ic">📂</span>Anda belum bergabung ke grup arisan manapun. Gabung dulu lewat tab Beranda untuk bisa mengirim iuran.</div>`;
+  }
+
+  const groupOptions = myGroups.map(g =>
+    `<option value="${g.id}" data-amount="${g.contribution_amount||0}">${escapeHtml(g.group_name)}</option>`
+  ).join('');
+
+  let roundOptions = '';
+  for (let i = 1; i <= 12; i++){
+    roundOptions += `<option value="${i}">Nomor Urut ${i}</option>`;
+  }
+
+  return `
+  <div class="bill-card" id="upload-bill-form-card" style="margin-bottom:18px;border:1.5px solid var(--teal);background:var(--surface2)">
+    <h4 style="color:var(--teal-deep);font-size:14.5px;margin-bottom:12px;font-weight:700">📤 Kirim Bukti Pembayaran Iuran</h4>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="field" style="margin:0">
+        <label>Pilih Grup Arisan</label>
+        <select id="upload-form-group">${groupOptions}</select>
+      </div>
+      <div class="field" style="margin:0">
+        <label>Nomor Urut Tarikan (1–12)</label>
+        <select id="upload-form-round">${roundOptions}</select>
+      </div>
+      <div class="field" style="margin:0">
+        <label>Foto Bukti Transfer</label>
+        <input type="file" id="upload-form-file" accept="image/*">
+      </div>
+      <button class="btn-upload" id="btn-submit-iuran" style="width:100%;padding:11px;font-size:13px" onclick="submitIuranForm()">
+        Kirim Bukti Pembayaran
+      </button>
+    </div>
+  </div>`;
+}
+
+// Dipanggil saat tombol "Kirim Bukti Pembayaran" diklik
+async function submitIuranForm(){
+  const groupSel = document.getElementById('upload-form-group');
+  const roundSel = document.getElementById('upload-form-round');
+  const fileInput = document.getElementById('upload-form-file');
+  const btn = document.getElementById('btn-submit-iuran');
+
+  const groupId     = groupSel.value;
+  const roundNumber = parseInt(roundSel.value, 10);
+  const file         = fileInput.files[0];
+
+  if (!groupId)  { toast('Pilih grup arisan terlebih dahulu!', 'err'); return; }
+  if (!roundNumber) { toast('Pilih nomor urut tarikan!', 'err'); return; }
+  if (!file)     { toast('Pilih foto bukti transfer terlebih dahulu!', 'err'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Mengompresi & mengunggah...';
+
+  try {
+    // 1. Kompres gambar
+    const blob = await compressImage(file, 200, 1280);
+
+    // 2. Upload ke storage bucket "receipts"
+    const fileName = `${currentUser.id}/${groupId}-r${roundNumber}-${Date.now()}.jpg`;
+    const { error: upErr } = await db.storage.from('receipts')
+      .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
+    if (upErr) throw upErr;
+
+    const { data: urlData } = db.storage.from('receipts').getPublicUrl(fileName);
+
+    // 3. Cek apakah baris payment untuk user+grup+round ini sudah ada
+    const { data: existingRows, error: checkErr } = await db.from('payments')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .eq('group_id', groupId)
+      .eq('round_number', roundNumber);
+    if (checkErr) throw checkErr;
+
+    if (existingRows && existingRows.length > 0){
+      // Update baris yang sudah ada
+      const { error: updErr } = await db.from('payments').update({
+        proof_url:      urlData.publicUrl,
+        payment_status: 'pending_verification',
+        rejection_note: null
+      }).eq('id', existingRows[0].id);
+      if (updErr) throw updErr;
+    } else {
+      // Buat baris baru — INSERT lengkap dengan user_id, group_id, round_number, proof_url
+      const { error: insErr } = await db.from('payments').insert([{
+        user_id:        currentUser.id,
+        group_id:       groupId,
+        round_number:   roundNumber,
+        proof_url:      urlData.publicUrl,
+        payment_status: 'pending_verification'
+      }]);
+      if (insErr) throw insErr;
+    }
+
+    toast('Bukti pembayaran berhasil dikirim! Menunggu verifikasi admin.', 'ok');
+    fileInput.value = '';
+    await loadMyBills();
+
+  } catch(err){
+    toast('Gagal mengirim bukti: ' + err.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Kirim Bukti Pembayaran';
+  }
+}
+
 async function loadMyBills(){
   const list = document.getElementById('bill-list');
   const now       = new Date();
   const day10     = new Date(now.getFullYear(), now.getMonth(), 10);
   const isPast10  = now > day10;
+
+  const reminderBanner = `<div style="background:rgba(184,134,11,0.1);border:1.5px solid var(--warn);
+    border-radius:var(--radius-sm);padding:11px 16px;margin-bottom:14px;font-size:13px;
+    color:var(--warn);font-weight:600;">
+    ⏰ <strong>Pengingat:</strong> Batas pembayaran iuran adalah setiap tanggal 10 bulan berjalan.
+    ${isPast10 ? '<br><span style="color:var(--danger)">⚠️ Sudah melewati tanggal 10 bulan ini! Anda tetap bisa membayar, namun mohon segera lunasi.</span>' : ''}
+  </div>`;
+
+  // Form ini SELALU dirender selama user sudah jadi anggota minimal 1 grup,
+  // terlepas dari apakah tabel payments sudah punya baris untuk dia atau belum.
+  const uploadFormHtml = renderUploadFormHtml();
 
   try {
     const { data, error } = await db.from('payments')
@@ -1106,19 +1230,13 @@ async function loadMyBills(){
       .order('round_number', { ascending: true });
     if (error) throw error;
 
-    const reminderBanner = `<div style="background:rgba(184,134,11,0.1);border:1.5px solid var(--warn);
-      border-radius:var(--radius-sm);padding:11px 16px;margin-bottom:14px;font-size:13px;
-      color:var(--warn);font-weight:600;">
-      ⏰ <strong>Pengingat:</strong> Batas pembayaran iuran adalah setiap tanggal 10 bulan berjalan.
-      ${isPast10 ? '<br><span style="color:var(--danger)">⚠️ Sudah melewati tanggal 10 bulan ini!</span>' : ''}
-    </div>`;
-
     if (!data || !data.length){
-      list.innerHTML = reminderBanner + `<div class="empty-note"><span class="ic">💳</span>Belum ada tagihan iuran.</div>`;
+      list.innerHTML = reminderBanner + uploadFormHtml +
+        `<div class="empty-note" style="margin-top:14px"><span class="ic">💳</span>Belum ada riwayat tagihan iuran. Gunakan form di atas untuk mengirim bukti pembayaran pertama Anda.</div>`;
       return;
     }
 
-    list.innerHTML = reminderBanner + data.map(p => {
+    list.innerHTML = reminderBanner + uploadFormHtml + data.map(p => {
       const groupName   = p.arisan_groups?.group_name || 'Grup Arisan';
       const amount      = p.arisan_groups?.contribution_amount || 0;
       const statusLabel = { unpaid:'Belum Bayar', pending_verification:'Menunggu Verifikasi', paid:'Lunas' }[p.payment_status] || p.payment_status;
