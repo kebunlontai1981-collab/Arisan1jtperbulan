@@ -269,10 +269,41 @@ input,select,textarea{font-family:inherit}
       <button type="submit" class="btn-gold" id="btn-login">Masuk</button>
       <div class="login-err" id="login-err"></div>
     </form>
-    <div class="login-foot">Belum punya akun? Hubungi admin grup Anda.</div>
+    <div class="login-foot">
+      Belum punya akun?
+      <button onclick="toggleRegister(true)" style="background:none;border:none;color:var(--gold);font-weight:700;cursor:pointer;font-size:12px;text-decoration:underline">Daftar Sekarang</button>
+    </div>
+  </div>
+
+  <!-- Form Registrasi -->
+  <div class="login-card" id="register-card" style="display:none;margin-top:16px;max-width:420px">
+    <div class="login-brand">
+      <span class="icon">📝</span>
+      <h1>Daftar Akun Baru</h1>
+      <p>Portal Anggota Arisan</p>
+    </div>
+    <form class="login-form" id="register-form">
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="reg-username" placeholder="Nama tampilan Anda" required>
+      </div>
+      <div class="field">
+        <label>Alamat Email</label>
+        <input type="email" id="reg-email" placeholder="nama@email.com" required>
+      </div>
+      <div class="field">
+        <label>Kata Sandi</label>
+        <input type="password" id="reg-password" placeholder="Min. 6 karakter" required>
+      </div>
+      <button type="submit" class="btn-gold" id="btn-register">Daftar Akun</button>
+      <div class="login-err" id="register-err"></div>
+    </form>
+    <div class="login-foot">
+      Sudah punya akun?
+      <button onclick="toggleRegister(false)" style="background:none;border:none;color:var(--gold);font-weight:700;cursor:pointer;font-size:12px;text-decoration:underline">Masuk di sini</button>
+    </div>
   </div>
 </div>
-
 <!-- ══════════════ APP SHELL (setelah login) ══════════════ -->
 <div id="app-shell">
   <div class="topbar">
@@ -293,6 +324,7 @@ input,select,textarea{font-family:inherit}
     <button class="tab-btn active" data-panel="groups">🔍 Cari Grup</button>
     <button class="tab-btn" data-panel="mygroups">📂 Grup Saya</button>
     <button class="tab-btn" data-panel="bills">💳 Iuran Saya</button>
+    <button class="tab-btn" data-panel="urutan">🏅 Urutan Arisan</button>
     <button class="tab-btn" data-panel="profile">👤 Profil</button>
   </nav>
 
@@ -343,8 +375,18 @@ input,select,textarea{font-family:inherit}
       <div class="bill-list" id="bill-list"></div>
     </div>
 
-    <!-- PANEL: Profil -->
-    <div class="panel" id="panel-profile">
+    <!-- PANEL: Urutan Arisan Transparan -->
+    <div class="panel" id="panel-urutan">
+      <div class="sec-head">
+        <h3>🏅 Urutan Pemenang Arisan</h3>
+        <select id="urutan-group-select" style="padding:9px 14px;border-radius:8px;border:1.5px solid var(--border);font-size:13px;background:var(--surface2)">
+          <option value="">— Pilih Grup —</option>
+        </select>
+      </div>
+      <div id="urutan-content">
+        <div class="empty-note"><span class="ic">🏅</span>Pilih grup untuk melihat urutan pemenang.</div>
+      </div>
+    </div>
       <div class="sec-head"><h3>Profil Saya</h3></div>
       <div class="profile-card">
         <div class="profile-av-lg" id="profile-avatar">?</div>
@@ -381,93 +423,128 @@ input,select,textarea{font-family:inherit}
 <div id="toast-box"></div>
 
 <script>
-/* ═══════════════════════════════════════════════
-   SUPABASE CLIENT
-═══════════════════════════════════════════════ */
 const SUPABASE_URL  = 'https://kzhgmmopruugbnkhyemc.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6aGdtbW9wcnV1Z2Jua2h5ZW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1ODM0ODEsImV4cCI6MjA5NzE1OTQ4MX0.OQ9wILuiDuan4V3wZGMJ8mVmJvwY9lyC5BmvHHodEM8';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-let currentUser   = null;   // auth user object
-let currentProfile = null;  // row dari profiles
-let myGroupIds    = [];     // array group_id yang sudah diikuti
-let allGroups     = [];
-let activeGroupId = null;
-let chatChannel   = null;
-let winnerChannel = null;
+let currentUser    = null;
+let currentProfile = null;
+let myGroupIds     = [];
+let allGroups      = [];
+let activeGroupId  = null;
+let chatChannel    = null;
+let winnerChannel  = null;
 
-/* ═══════════════════════════════════════════════
-   TOAST
-═══════════════════════════════════════════════ */
+/* ── HELPERS ── */
 function toast(msg, type){
   const box = document.getElementById('toast-box');
-  const el = document.createElement('div');
-  el.className = 'toast' + (type ? ' ' + type : '');
+  const el  = document.createElement('div');
+  el.className = 'toast'+(type?' '+type:'');
   el.textContent = msg;
   box.appendChild(el);
   requestAnimationFrame(()=> el.classList.add('show'));
-  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=> el.remove(), 300); }, 3200);
+  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=> el.remove(),300); },3400);
 }
-
-function closeModal(name){
-  document.getElementById('modal-' + name).classList.remove('show');
-}
-
+function closeModal(name){ document.getElementById('modal-'+name).classList.remove('show'); }
 function initialsOf(name){
   if(!name) return '?';
-  const parts = name.trim().split(' ');
-  return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
+  const p = name.trim().split(' ');
+  return (p[0][0]+(p[1]?p[1][0]:'')).toUpperCase();
+}
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str; return d.innerHTML;
+}
+function toggleRegister(show){
+  document.getElementById('register-card').style.display = show ? 'block' : 'none';
+  document.getElementById('login-form').closest('.login-card').style.display = show ? 'none' : 'block';
 }
 
-/* ═══════════════════════════════════════════════
-   LOGIN FLOW
-═══════════════════════════════════════════════ */
+/* ── REGISTRASI ── */
+document.getElementById('register-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('reg-username').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const errBox   = document.getElementById('register-err');
+  const btn      = document.getElementById('btn-register');
+  errBox.textContent = '';
+  if (!username) { errBox.textContent = 'Username wajib diisi!'; return; }
+  if (password.length < 6) { errBox.textContent = 'Password minimal 6 karakter!'; return; }
+  btn.disabled = true; btn.textContent = 'Mendaftarkan...';
+
+  try {
+    const { data, error } = await db.auth.signUp({ email, password });
+    if (error) throw error;
+
+    // Buat baris profiles dengan role default 'user'
+    const { error: profErr } = await db.from('profiles').insert([{
+      id:       data.user.id,
+      username: username,
+      role:     'user'
+    }]);
+    if (profErr) throw profErr;
+
+    errBox.style.color = 'var(--success)';
+    errBox.textContent = '✅ Akun berhasil dibuat! Silakan masuk.';
+    setTimeout(()=> toggleRegister(false), 1800);
+  } catch(err){
+    errBox.style.color = 'var(--danger)';
+    errBox.textContent = 'Gagal daftar: '+(err.message||'Terjadi kesalahan.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Daftar Akun';
+  }
+});
+
+/* ── LOGIN ── */
 document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const email = document.getElementById('login-email').value.trim();
+  const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
-  const btn = document.getElementById('btn-login');
-  const errBox = document.getElementById('login-err');
+  const btn      = document.getElementById('btn-login');
+  const errBox   = document.getElementById('login-err');
   errBox.textContent = '';
-  btn.disabled = true;
-  btn.textContent = 'Memverifikasi...';
+  btn.disabled = true; btn.textContent = 'Memverifikasi...';
 
   try {
     const { data, error } = await db.auth.signInWithPassword({ email, password });
     if (error) throw error;
 
+    // ANTI-406: array, bukan .single()
     const { data: profileRows, error: profErr } = await db
-      .from('profiles')
-      .select('*')
-      .eq('id', data.user.id);
+      .from('profiles').select('*').eq('id', data.user.id);
     if (profErr) throw profErr;
-    if (!profileRows || profileRows.length === 0) {
-      throw new Error('Profil pengguna tidak ditemukan. Hubungi admin.');
-    }
-    const profile = profileRows[0];
 
-    if (profile.role === 'admin') {
-      window.location.href = 'admin.html';
-      return;
-    }
+    const profile = (profileRows && profileRows.length > 0) ? profileRows[0] : null;
+    if (!profile) throw new Error('Profil tidak ditemukan. Hubungi admin.');
 
-    currentUser = data.user;
+    if (profile.role === 'admin') { window.location.href = 'admin.html'; return; }
+
+    currentUser    = data.user;
     currentProfile = profile;
     await enterApp();
 
-  } catch (err) {
-    let msg = 'Gagal masuk: ';
-    if (err.message && err.message.includes('Invalid login credentials')) {
-      msg += 'Email atau password salah.';
-    } else {
-      msg += err.message || 'Terjadi kesalahan.';
-    }
-    errBox.textContent = msg;
-    btn.disabled = false;
-    btn.textContent = 'Masuk';
+  } catch(err){
+    errBox.textContent = err.message?.includes('Invalid login credentials')
+      ? 'Gagal masuk: Email atau password salah.'
+      : 'Gagal masuk: '+(err.message||'Terjadi kesalahan.');
+    btn.disabled = false; btn.textContent = 'Masuk';
   }
 });
+
+/* ── AUTO SESSION ── */
+(async () => {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) return;
+  const { data: rows } = await db.from('profiles').select('*').eq('id', session.user.id);
+  const profile = rows && rows.length > 0 ? rows[0] : null;
+  if (!profile) return;
+  if (profile.role === 'admin') { window.location.href = 'admin.html'; return; }
+  currentUser    = session.user;
+  currentProfile = profile;
+  await enterApp();
+})();
 
 async function enterApp(){
   document.getElementById('login-screen').classList.add('hidden');
@@ -476,93 +553,67 @@ async function enterApp(){
   const uname = currentProfile.username || currentUser.email;
   document.getElementById('topbar-username').textContent = uname;
   document.getElementById('profile-username').textContent = uname;
-  document.getElementById('profile-email').textContent = currentUser.email;
+  document.getElementById('profile-email').textContent    = currentUser.email;
 
   const avEl = document.getElementById('topbar-avatar');
-  const avElProfile = document.getElementById('profile-avatar');
+  const avPr = document.getElementById('profile-avatar');
   if (currentProfile.avatar_url) {
     avEl.innerHTML = `<img src="${currentProfile.avatar_url}" alt="">`;
-    avElProfile.innerHTML = `<img src="${currentProfile.avatar_url}" alt="">`;
+    avPr.innerHTML = `<img src="${currentProfile.avatar_url}" alt="">`;
   } else {
     avEl.textContent = initialsOf(uname);
-    avElProfile.textContent = initialsOf(uname);
+    avPr.textContent = initialsOf(uname);
   }
 
   await loadMyMemberships();
   await loadAllGroups();
   await loadMyBills();
-  setupWinnerBroadcastListener();
+  setupWinnerListener();
+  setupPaymentRealtime();
 }
 
 document.getElementById('btn-logout').addEventListener('click', async () => {
-  await db.auth.signOut();
-  window.location.reload();
+  await db.auth.signOut(); window.location.reload();
 });
 
-/* Cek sesi yang masih aktif saat reload halaman */
-(async () => {
-  const { data: { session } } = await db.auth.getSession();
-  if (session) {
-    const { data: profileRows, error } = await db.from('profiles').select('*').eq('id', session.user.id);
-    if (!error && profileRows && profileRows.length > 0) {
-      const profile = profileRows[0];
-      if (profile.role === 'admin') { window.location.href = 'admin.html'; return; }
-      currentUser = session.user;
-      currentProfile = profile;
-      await enterApp();
-    }
-  }
-})();
-
-/* ═══════════════════════════════════════════════
-   TAB SWITCHING
-═══════════════════════════════════════════════ */
+/* ── TAB SWITCHING ── */
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+    document.getElementById('panel-'+btn.dataset.panel).classList.add('active');
     if (btn.dataset.panel === 'mygroups') showMyGroupsListView();
+    if (btn.dataset.panel === 'urutan')   populateUrutanGroupSelect();
   });
 });
 
-/* ═══════════════════════════════════════════════
-   MEMBERSHIPS
-═══════════════════════════════════════════════ */
+/* ── MEMBERSHIPS ── */
 async function loadMyMemberships(){
-  const { data, error } = await db
-    .from('group_members')
-    .select('group_id')
-    .eq('user_id', currentUser.id);
-  if (error) { console.error(error); return; }
-  myGroupIds = (data || []).map(r => r.group_id);
+  const { data } = await db.from('group_members').select('group_id').eq('user_id', currentUser.id);
+  myGroupIds = (data||[]).map(r => r.group_id);
   document.getElementById('profile-group-count').textContent = myGroupIds.length;
 }
 
-/* ═══════════════════════════════════════════════
-   LOAD GROUPS (Cari & Gabung + Grup Saya)
-═══════════════════════════════════════════════ */
+/* ── LOAD GROUPS ── */
 async function loadAllGroups(){
-  const { data, error } = await db.from('arisan_groups').select('*').order('created_at', { ascending: false });
-  if (error) { console.error(error); toast('Gagal memuat grup', 'err'); return; }
+  const { data, error } = await db.from('arisan_groups').select('*').order('created_at',{ascending:false});
+  if (error) { toast('Gagal memuat grup','err'); return; }
   allGroups = data || [];
   renderAllGroups(allGroups);
   renderMyGroups();
+  populateUrutanGroupSelect();
 }
 
 function renderAllGroups(list){
   const grid = document.getElementById('group-grid-all');
-  if (!list.length) {
-    grid.innerHTML = `<div class="empty-note" style="grid-column:1/-1"><span class="ic">🔍</span>Belum ada grup arisan tersedia.</div>`;
+  if (!list.length){
+    grid.innerHTML = `<div class="empty-note" style="grid-column:1/-1"><span class="ic">🔍</span>Belum ada grup tersedia.</div>`;
     return;
   }
   grid.innerHTML = list.map(g => {
     const isMember = myGroupIds.includes(g.id);
-    const pct = g.max_slots ? Math.min(100, Math.round(((g.current_members || g.filled_slots || 0) / g.max_slots) * 100)) : 0;
-    const cover = g.group_cover_url
-      ? `<img src="${g.group_cover_url}" alt="${g.group_name}">`
-      : `🪙`;
+    const cover    = g.group_cover_url ? `<img src="${g.group_cover_url}" alt="">` : `🪙`;
     return `<div class="group-card">
       <div class="group-cover">${cover}</div>
       <div class="group-body">
@@ -571,8 +622,8 @@ function renderAllGroups(list){
           <span>Iuran: <strong>Rp${Number(g.contribution_amount||0).toLocaleString('id-ID')}</strong></span>
           <span>Slot: ${g.max_slots||'-'}</span>
         </div>
-        <div class="slot-bar-wrap"><div class="slot-bar" style="width:${pct}%"></div></div>
-        <button class="btn-join ${isMember?'joined':''}" ${isMember?'disabled':''} onclick="joinGroup('${g.id}','${(g.group_name||'').replace(/'/g,"\\'")}')">
+        <button class="btn-join ${isMember?'joined':''}" ${isMember?'disabled':''}
+          onclick="joinGroup('${g.id}','${(g.group_name||'').replace(/'/g,"\\'")}')">
           ${isMember ? '✓ Sudah Bergabung' : 'Gabung Grup'}
         </button>
       </div>
@@ -583,21 +634,21 @@ function renderAllGroups(list){
 function renderMyGroups(){
   const grid = document.getElementById('group-grid-mine');
   const mine = allGroups.filter(g => myGroupIds.includes(g.id));
-  if (!mine.length) {
-    grid.innerHTML = `<div class="empty-note" style="grid-column:1/-1"><span class="ic">📂</span>Anda belum bergabung di grup manapun. Cari grup di tab "Cari Grup".</div>`;
+  if (!mine.length){
+    grid.innerHTML = `<div class="empty-note" style="grid-column:1/-1"><span class="ic">📂</span>Belum bergabung di grup manapun.</div>`;
     return;
   }
   grid.innerHTML = mine.map(g => {
-    const cover = g.group_cover_url ? `<img src="${g.group_cover_url}" alt="${g.group_name}">` : `🪙`;
+    const cover = g.group_cover_url ? `<img src="${g.group_cover_url}" alt="">` : `🪙`;
     return `<div class="group-card" onclick="openGroupDetail('${g.id}')">
       <div class="group-cover">${cover}</div>
       <div class="group-body">
         <h4>${g.group_name}</h4>
         <div class="group-meta">
-          <span>Iuran: <strong>Rp${Number(g.contribution_amount||0).toLocaleString('id-ID')}</strong></span>
-          <span>Slot: ${g.max_slots||'-'}</span>
+          <span>Rp${Number(g.contribution_amount||0).toLocaleString('id-ID')}</span>
+          <span>${g.max_slots||'-'} slot</span>
         </div>
-        <button class="btn-join joined" style="pointer-events:none">Lihat Detail &amp; Chat →</button>
+        <button class="btn-join joined" style="pointer-events:none">Lihat Detail & Chat →</button>
       </div>
     </div>`;
   }).join('');
@@ -605,89 +656,61 @@ function renderMyGroups(){
 
 document.getElementById('group-search').addEventListener('input', (e) => {
   const q = e.target.value.toLowerCase().trim();
-  const filtered = allGroups.filter(g => (g.group_name||'').toLowerCase().includes(q));
-  renderAllGroups(filtered);
+  renderAllGroups(allGroups.filter(g => (g.group_name||'').toLowerCase().includes(q)));
 });
 
 async function joinGroup(groupId, groupName){
   if (myGroupIds.includes(groupId)) return;
   try {
-    const { error } = await db.from('group_members').insert([{ group_id: groupId, user_id: currentUser.id }]);
+    const { error } = await db.from('group_members').insert([{ group_id:groupId, user_id:currentUser.id }]);
     if (error) throw error;
     myGroupIds.push(groupId);
-    toast(`Berhasil bergabung ke "${groupName}"!`, 'ok');
-    renderAllGroups(allGroups);
-    renderMyGroups();
+    toast(`Berhasil bergabung ke "${groupName}"!`,'ok');
+    renderAllGroups(allGroups); renderMyGroups();
     await loadMyBills();
-  } catch (err) {
-    toast('Gagal bergabung: ' + err.message, 'err');
-  }
+    populateUrutanGroupSelect();
+  } catch(err){ toast('Gagal bergabung: '+err.message,'err'); }
 }
 
-/* ═══════════════════════════════════════════════
-   GROUP DETAIL + CHAT REALTIME
-═══════════════════════════════════════════════ */
+/* ── GROUP DETAIL + CHAT ── */
 function showMyGroupsListView(){
   document.getElementById('mygroups-list-view').classList.remove('hidden');
   document.getElementById('mygroups-detail-view').classList.add('hidden');
-  if (chatChannel) { db.removeChannel(chatChannel); chatChannel = null; }
+  if (chatChannel){ db.removeChannel(chatChannel); chatChannel = null; }
   activeGroupId = null;
 }
-
 document.getElementById('btn-back-to-mygroups').addEventListener('click', showMyGroupsListView);
 
 async function openGroupDetail(groupId){
   activeGroupId = groupId;
   const g = allGroups.find(x => x.id === groupId);
   if (!g) return;
-
   document.getElementById('mygroups-list-view').classList.add('hidden');
   document.getElementById('mygroups-detail-view').classList.remove('hidden');
-
-  document.getElementById('gd-name').textContent = g.group_name;
-  document.getElementById('gd-desc').textContent = g.description || 'Grup arisan keluarga & komunitas';
-  document.getElementById('gd-amount').textContent = 'Rp' + Number(g.contribution_amount||0).toLocaleString('id-ID');
-  document.getElementById('gd-capacity').textContent = (g.max_slots||'-') + ' anggota';
-
-  const { data: periods } = await db
-    .from('arisan_periods')
-    .select('round_number')
-    .eq('group_id', groupId)
-    .order('round_number', { ascending: false })
-    .limit(1);
-  document.getElementById('gd-round').textContent = periods && periods.length ? '#' + periods[0].round_number : 'Belum mulai';
-
+  document.getElementById('gd-name').textContent   = g.group_name;
+  document.getElementById('gd-desc').textContent   = g.description || '';
+  document.getElementById('gd-amount').textContent = 'Rp'+Number(g.contribution_amount||0).toLocaleString('id-ID');
+  document.getElementById('gd-capacity').textContent = (g.max_slots||'-')+' anggota';
+  const { data: periods } = await db.from('arisan_periods').select('round_number')
+    .eq('group_id',groupId).order('round_number',{ascending:false}).limit(1);
+  document.getElementById('gd-round').textContent = periods&&periods.length ? '#'+periods[0].round_number : 'Belum mulai';
   await loadChatMessages(groupId);
   subscribeToChat(groupId);
 }
 
 async function loadChatMessages(groupId){
-  const { data, error } = await db
-    .from('messages')
-    .select('*, profiles:sender_id(username, avatar_url)')
-    .eq('group_id', groupId)
-    .order('created_at', { ascending: true })
-    .limit(200);
-
+  const { data, error } = await db.from('messages')
+    .select('*, profiles:sender_id(username,avatar_url)')
+    .eq('group_id',groupId).order('created_at',{ascending:true}).limit(200);
   const box = document.getElementById('chat-messages');
-  if (error) {
-    // Fallback jika relasi sender_id berbeda nama / tidak ada FK alias
-    const { data: plain } = await db.from('messages').select('*').eq('group_id', groupId).order('created_at', { ascending: true }).limit(200);
-    renderChatMessages(plain || []);
-    return;
-  }
-  renderChatMessages(data || []);
-}
-
-function renderChatMessages(rows){
-  const box = document.getElementById('chat-messages');
-  if (!rows.length) {
-    box.innerHTML = `<div class="empty-note"><span class="ic">💬</span>Belum ada pesan. Mulai obrolan grup!</div>`;
+  const rows = error ? [] : (data||[]);
+  if (!rows.length){
+    box.innerHTML = `<div class="empty-note"><span class="ic">💬</span>Belum ada pesan.</div>`;
     return;
   }
   box.innerHTML = rows.map(m => {
     const isMine = m.sender_id === currentUser.id;
-    const uname = (m.profiles && m.profiles.username) || (isMine ? (currentProfile.username||'Saya') : 'Anggota');
+    const uname  = m.profiles?.username || (isMine ? currentProfile.username : 'Anggota');
     return `<div class="msg-row ${isMine?'mine':''}">
       <div class="msg-av">${initialsOf(uname)}</div>
       <div>
@@ -699,89 +722,108 @@ function renderChatMessages(rows){
   box.scrollTop = box.scrollHeight;
 }
 
-function escapeHtml(str){
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
-}
-
 function subscribeToChat(groupId){
-  if (chatChannel) { db.removeChannel(chatChannel); chatChannel = null; }
-  chatChannel = db.channel('chat-group-' + groupId)
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `group_id=eq.${groupId}` }, () => {
-      loadChatMessages(groupId);
-    })
+  if (chatChannel){ db.removeChannel(chatChannel); chatChannel = null; }
+  chatChannel = db.channel('chat-'+groupId)
+    .on('postgres_changes',{ event:'INSERT', schema:'public', table:'messages', filter:`group_id=eq.${groupId}` },
+      ()=> loadChatMessages(groupId))
     .subscribe();
 }
 
 document.getElementById('btn-send-chat').addEventListener('click', sendChatMessage);
-document.getElementById('chat-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') sendChatMessage();
-});
+document.getElementById('chat-input').addEventListener('keydown', e => { if(e.key==='Enter') sendChatMessage(); });
 
 async function sendChatMessage(){
   const input = document.getElementById('chat-input');
-  const text = input.value.trim();
+  const text  = input.value.trim();
   if (!text || !activeGroupId) return;
   input.value = '';
   try {
     const { error } = await db.from('messages').insert([{
-      group_id: activeGroupId,
-      sender_id: currentUser.id,
-      message_text: text
+      group_id: activeGroupId, sender_id: currentUser.id, message_text: text
     }]);
     if (error) throw error;
-  } catch (err) {
-    toast('Gagal mengirim pesan: ' + err.message, 'err');
-  }
+  } catch(err){ toast('Gagal kirim: '+err.message,'err'); }
 }
 
-/* ═══════════════════════════════════════════════
-   IURAN SAYA (BILLS / PAYMENTS)
-═══════════════════════════════════════════════ */
+/* ── IURAN / BILLS ── */
 async function loadMyBills(){
-  const { data, error } = await db
-    .from('payments')
+  const { data, error } = await db.from('payments')
     .select('*, arisan_groups:group_id(group_name, contribution_amount)')
     .eq('user_id', currentUser.id)
-    .order('round_number', { ascending: true });
+    .order('round_number',{ascending:true});
 
   const list = document.getElementById('bill-list');
-  if (error) {
-    list.innerHTML = `<div class="empty-note"><span class="ic">⚠️</span>Gagal memuat data iuran: ${error.message}</div>`;
+
+  // Cek tanggal jatuh tempo (setiap tanggal 10)
+  const now    = new Date();
+  const day10  = new Date(now.getFullYear(), now.getMonth(), 10);
+  const isPast10 = now > day10;
+
+  if (error){
+    list.innerHTML = `<div class="empty-note"><span class="ic">⚠️</span>Gagal memuat: ${error.message}</div>`;
     return;
   }
-  if (!data || !data.length) {
-    list.innerHTML = `<div class="empty-note"><span class="ic">💳</span>Belum ada tagihan iuran. Bergabunglah dengan sebuah grup untuk memulai.</div>`;
+  if (!data || !data.length){
+    list.innerHTML = `<div class="empty-note"><span class="ic">💳</span>Belum ada tagihan iuran.</div>`;
     return;
   }
 
-  list.innerHTML = data.map(p => {
-    const groupName = p.arisan_groups ? p.arisan_groups.group_name : 'Grup Arisan';
-    const amount = p.arisan_groups ? p.arisan_groups.contribution_amount : 0;
-    const statusLabel = { unpaid: 'Belum Bayar', pending_verification: 'Menunggu Verifikasi', paid: 'Lunas' }[p.payment_status] || p.payment_status;
+  // Banner pengingat jatuh tempo
+  const reminderBanner = `
+    <div style="background:rgba(184,134,11,0.1);border:1.5px solid var(--warn);border-radius:var(--radius-sm);
+      padding:11px 16px;margin-bottom:14px;font-size:13px;color:var(--warn);font-weight:600;">
+      ⏰ <strong>Pengingat:</strong> Batas pembayaran iuran adalah setiap tanggal 10 bulan berjalan.
+      ${isPast10 ? '<br><span style="color:var(--danger)">⚠️ Sudah melewati tanggal 10 bulan ini!</span>' : ''}
+    </div>`;
 
+  list.innerHTML = reminderBanner + data.map(p => {
+    const groupName   = p.arisan_groups?.group_name || 'Grup Arisan';
+    const amount      = p.arisan_groups?.contribution_amount || 0;
+    const statusLabel = { unpaid:'Belum Bayar', pending_verification:'Menunggu Verifikasi', paid:'Lunas' }[p.payment_status] || p.payment_status;
+
+    // Notifikasi merah DITOLAK
+    const rejectedNote = (p.payment_status === 'unpaid' && p.rejection_note)
+      ? `<div style="color:var(--danger);font-weight:800;font-size:12.5px;margin-top:6px;
+           background:rgba(192,57,43,0.08);padding:7px 10px;border-radius:6px;border-left:3px solid var(--danger)">
+           ❌ Pembayaran Ditolak, silakan upload ulang bukti pembayaran yang sah!
+         </div>` : '';
+
+    // Penanda overdue
+    const overdueNote = isPast10 && p.payment_status !== 'paid'
+      ? `<span style="color:var(--danger);font-size:11px;font-weight:700">⚠️ Jatuh Tempo</span>` : '';
+
+    // Tombol upload dengan pilih putaran
     let actionHtml = '';
-    if (p.payment_status === 'unpaid') {
+    if (p.payment_status === 'unpaid'){
       actionHtml = `
-        <input type="file" accept="image/*" class="file-hidden" id="file-${p.id}" onchange="handleProofUpload(event,'${p.id}')">
-        <button class="btn-upload" onclick="document.getElementById('file-${p.id}').click()">📤 Upload Bukti</button>`;
-    } else if (p.payment_status === 'pending_verification') {
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <input type="file" accept="image/*" class="file-hidden" id="file-${p.id}"
+            onchange="handleProofUpload(event,'${p.id}','${p.round_number}')">
+          <button class="btn-upload" onclick="document.getElementById('file-${p.id}').click()">
+            📤 Upload Bukti Putaran #${p.round_number}
+          </button>
+        </div>`;
+    } else if (p.payment_status === 'pending_verification'){
       actionHtml = p.proof_url
         ? `<img src="${p.proof_url}" class="proof-thumb-small" onclick="openLightbox('${p.proof_url}')" alt="bukti">`
         : `<span style="font-size:12px;color:var(--ink-muted)">Menunggu admin</span>`;
-    } else if (p.payment_status === 'paid') {
+    } else if (p.payment_status === 'paid'){
       actionHtml = `<span style="color:var(--success);font-weight:700;font-size:13px">✓ Lunas</span>`;
     }
 
-    return `<div class="bill-card">
-      <div class="bill-info">
-        <h4>${groupName}</h4>
-        <span>Putaran #${p.round_number}</span>
+    return `<div class="bill-card" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div class="bill-info" style="flex:1">
+          <h4>${groupName}</h4>
+          <span>Putaran #${p.round_number}</span>
+          <br>${overdueNote}
+        </div>
+        <div class="bill-amount">Rp${Number(amount).toLocaleString('id-ID')}</div>
+        <span class="status-pill ${p.payment_status}">${statusLabel}</span>
+        ${actionHtml}
       </div>
-      <div class="bill-amount">Rp${Number(amount||0).toLocaleString('id-ID')}</div>
-      <span class="status-pill ${p.payment_status}">${statusLabel}</span>
-      ${actionHtml}
+      ${rejectedNote}
     </div>`;
   }).join('');
 }
@@ -791,134 +833,184 @@ function openLightbox(url){
   document.getElementById('modal-lightbox').classList.add('show');
 }
 
-/* ═══════════════════════════════════════════════
-   IMAGE COMPRESSION + UPLOAD BUKTI TRANSFER
-   Target: maks ~200KB, format JPEG
-═══════════════════════════════════════════════ */
-function compressImage(file, maxKB = 200, maxDim = 1280) {
-  return new Promise((resolve, reject) => {
+/* ── IMAGE COMPRESSION ── */
+function compressImage(file, maxKB=200, maxDim=1280){
+  return new Promise((resolve,reject)=>{
     const img = new Image();
     const reader = new FileReader();
-    reader.onload = (e) => { img.src = e.target.result; };
+    reader.onload = e => { img.src = e.target.result; };
     reader.onerror = reject;
     reader.readAsDataURL(file);
-
     img.onload = () => {
-      let { width, height } = img;
-      if (width > maxDim || height > maxDim) {
-        if (width > height) { height = Math.round(height * (maxDim / width)); width = maxDim; }
-        else { width = Math.round(width * (maxDim / height)); height = maxDim; }
+      let {width,height} = img;
+      if(width>maxDim||height>maxDim){
+        if(width>height){ height=Math.round(height*(maxDim/width)); width=maxDim; }
+        else { width=Math.round(width*(maxDim/height)); height=maxDim; }
       }
       const canvas = document.createElement('canvas');
-      canvas.width = width; canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-
-      let quality = 0.85;
-      const tryCompress = () => {
-        canvas.toBlob((blob) => {
-          if (!blob) { reject(new Error('Gagal mengompresi gambar')); return; }
-          if (blob.size / 1024 <= maxKB || quality <= 0.3) {
-            resolve(blob);
-          } else {
-            quality -= 0.1;
-            tryCompress();
-          }
-        }, 'image/jpeg', quality);
-      };
-      tryCompress();
+      canvas.width=width; canvas.height=height;
+      canvas.getContext('2d').drawImage(img,0,0,width,height);
+      let quality=0.85;
+      const tryC=()=>{ canvas.toBlob(blob=>{
+        if(!blob){ reject(new Error('Gagal kompresi')); return; }
+        if(blob.size/1024<=maxKB||quality<=0.3){ resolve(blob); }
+        else { quality-=0.1; tryC(); }
+      },'image/jpeg',quality); };
+      tryC();
     };
-    img.onerror = () => reject(new Error('Gagal memuat gambar'));
+    img.onerror = ()=> reject(new Error('Gagal baca gambar'));
   });
 }
 
-async function handleProofUpload(event, paymentId){
+async function handleProofUpload(event, paymentId, roundNumber){
   const file = event.target.files[0];
   if (!file) return;
-  toast('Mengompresi & mengunggah bukti transfer...');
-
+  toast(`Mengompresi & mengunggah bukti Putaran #${roundNumber}...`);
   try {
-    const compressedBlob = await compressImage(file, 200, 1280);
+    const blob     = await compressImage(file,200,1280);
     const fileName = `${currentUser.id}/${paymentId}-${Date.now()}.jpg`;
-
-    const { error: upErr } = await db.storage.from('receipts').upload(fileName, compressedBlob, {
-      contentType: 'image/jpeg',
-      upsert: true
-    });
+    const { error: upErr } = await db.storage.from('receipts').upload(fileName, blob, { contentType:'image/jpeg', upsert:true });
     if (upErr) throw upErr;
-
     const { data: urlData } = db.storage.from('receipts').getPublicUrl(fileName);
-
     const { error: dbErr } = await db.from('payments').update({
-      proof_url: urlData.publicUrl,
-      payment_status: 'pending_verification'
+      proof_url:        urlData.publicUrl,
+      payment_status:   'pending_verification',
+      rejection_note:   null   // hapus catatan tolak sebelumnya
     }).eq('id', paymentId);
     if (dbErr) throw dbErr;
-
-    toast('Bukti transfer berhasil diunggah! Menunggu verifikasi admin.', 'ok');
+    toast('Bukti berhasil diunggah! Menunggu verifikasi admin.','ok');
     await loadMyBills();
-  } catch (err) {
-    toast('Gagal mengunggah bukti: ' + err.message, 'err');
-  } finally {
-    event.target.value = '';
-  }
+  } catch(err){ toast('Gagal upload: '+err.message,'err'); }
+  finally { event.target.value=''; }
 }
 
-/* ═══════════════════════════════════════════════
-   REALTIME PAYMENTS (refresh otomatis saat admin verifikasi)
-═══════════════════════════════════════════════ */
-db.channel('payments-self-watch')
-  .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'payments' }, (payload) => {
-    if (currentUser && payload.new && payload.new.user_id === currentUser.id) {
-      loadMyBills();
-    }
-  })
-  .subscribe();
+/* ── URUTAN ARISAN TRANSPARAN ── */
+function populateUrutanGroupSelect(){
+  const sel = document.getElementById('urutan-group-select');
+  const myGroups = allGroups.filter(g => myGroupIds.includes(g.id));
+  sel.innerHTML = '<option value="">— Pilih Grup —</option>' +
+    myGroups.map(g => `<option value="${g.id}">${g.group_name}</option>`).join('');
+}
 
-/* ═══════════════════════════════════════════════
-   WINNER OVERLAY — Broadcast Realtime + Confetti
-═══════════════════════════════════════════════ */
-function setupWinnerBroadcastListener(){
-  if (winnerChannel) return;
-  winnerChannel = db.channel('arisan-winner-broadcast')
-    .on('broadcast', { event: 'winner_announced' }, (payload) => {
-      const p = payload.payload || {};
-      showWinnerOverlay(p.winner_name || 'Anggota', p.group_name || 'Grup Arisan');
+document.getElementById('urutan-group-select').addEventListener('change', async function(){
+  const groupId  = this.value;
+  const content  = document.getElementById('urutan-content');
+  if (!groupId){
+    content.innerHTML = `<div class="empty-note"><span class="ic">🏅</span>Pilih grup untuk melihat urutan pemenang.</div>`;
+    return;
+  }
+  content.innerHTML = `<div class="empty-note"><span class="ic" style="animation:spin 1s linear infinite;display:inline-block">⏳</span> Memuat...</div>`;
+
+  try {
+    // Ambil semua anggota grup
+    const { data: members } = await db.from('group_members')
+      .select('user_id, profiles:user_id(username)')
+      .eq('group_id', groupId);
+
+    // Ambil riwayat pemenang grup ini
+    const { data: periods } = await db.from('arisan_periods')
+      .select('round_number, winner_id, draw_date, profiles:winner_id(username)')
+      .eq('group_id', groupId)
+      .order('round_number',{ascending:true});
+
+    const winnerMap = {};
+    (periods||[]).forEach(p => {
+      winnerMap[p.round_number] = {
+        name:    p.profiles?.username || '—',
+        date:    p.draw_date ? new Date(p.draw_date).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'}) : '—'
+      };
+    });
+
+    const totalRounds = (members||[]).length || 12;
+    let rows = '';
+    for (let i = 1; i <= totalRounds; i++){
+      const w = winnerMap[i];
+      rows += `<tr>
+        <td style="font-weight:700;text-align:center">#${i}</td>
+        <td>${w ? `<strong style="color:var(--teal-deep)">🏆 ${w.name}</strong>` : '<span style="color:var(--ink-muted)">Belum ditetapkan</span>'}</td>
+        <td>${w ? w.date : '—'}</td>
+        <td>${w ? `<span class="status-pill paid">Sudah Menang</span>` : `<span class="status-pill unpaid">Menunggu</span>`}</td>
+      </tr>`;
+    }
+
+    content.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th style="text-align:center">Putaran</th><th>Pemenang</th><th>Tanggal</th><th>Status</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  } catch(err){
+    content.innerHTML = `<div class="empty-note">Gagal memuat: ${err.message}</div>`;
+  }
+});
+
+/* ── REALTIME PAYMENTS ── */
+function setupPaymentRealtime(){
+  db.channel('payments-user-watch')
+    .on('postgres_changes',{ event:'UPDATE', schema:'public', table:'payments' }, payload => {
+      if (currentUser && payload.new?.user_id === currentUser.id) loadMyBills();
     })
     .subscribe();
 }
 
-function showWinnerOverlay(name, groupName){
-  document.getElementById('winner-name').textContent = name;
-  document.getElementById('winner-group').textContent = 'Selamat memenangkan arisan di grup "' + groupName + '"!';
+/* ── REALTIME URUTAN (update otomatis saat admin tetapkan pemenang) ── */
+db.channel('arisan-periods-watch')
+  .on('postgres_changes',{ event:'*', schema:'public', table:'arisan_periods' }, () => {
+    // Refresh tabel urutan jika panel sedang aktif
+    const sel = document.getElementById('urutan-group-select');
+    if (sel && sel.value) sel.dispatchEvent(new Event('change'));
+
+    // Tampilkan popup selamat jika ada pemenang baru
+    // (ditangani juga oleh winner listener di bawah)
+  })
+  .subscribe();
+
+/* ── WINNER POP-UP ── */
+function setupWinnerListener(){
+  if (winnerChannel) return;
+  // Tangkap via Postgres Changes di arisan_periods (INSERT = pemenang baru ditetapkan)
+  winnerChannel = db.channel('winner-live-watch')
+    .on('postgres_changes',{ event:'INSERT', schema:'public', table:'arisan_periods' }, async payload => {
+      const row = payload.new;
+      if (!row) return;
+      // Ambil nama pemenang & nama grup
+      const { data: profRows } = await db.from('profiles').select('username').eq('id', row.winner_id);
+      const { data: grpRows  } = await db.from('arisan_groups').select('group_name').eq('id', row.group_id);
+      const wName = profRows?.[0]?.username || 'Anggota';
+      const gName = grpRows?.[0]?.group_name || 'Grup Arisan';
+      showWinnerOverlay(wName, gName, row.round_number);
+    })
+    .subscribe();
+}
+
+function showWinnerOverlay(name, groupName, round){
+  document.getElementById('winner-name').textContent  = name;
+  document.getElementById('winner-group').textContent =
+    `Selamat memenangkan arisan Putaran #${round} di grup "${groupName}"! 🎊`;
   document.getElementById('winner-overlay').classList.add('show');
   launchConfetti();
 }
-
-function closeWinnerOverlay(){
-  document.getElementById('winner-overlay').classList.remove('show');
-}
+function closeWinnerOverlay(){ document.getElementById('winner-overlay').classList.remove('show'); }
 
 function launchConfetti(){
-  const colors = ['#d4a849','#e8c873','#0f4c4f','#16686b','#ffffff'];
-  for (let i = 0; i < 80; i++) {
-    const piece = document.createElement('div');
-    piece.className = 'confetti-piece';
-    const size = 6 + Math.random() * 6;
-    piece.style.width = size + 'px';
-    piece.style.height = (size * 0.4) + 'px';
-    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
-    piece.style.left = Math.random() * 100 + 'vw';
-    const duration = 2.4 + Math.random() * 1.8;
-    const rotateEnd = 360 + Math.random() * 720;
-    piece.style.transition = `transform ${duration}s cubic-bezier(.25,.46,.45,.94), top ${duration}s linear, opacity ${duration}s ease-in`;
-    document.body.appendChild(piece);
-    requestAnimationFrame(() => {
-      piece.style.top = '105vh';
-      piece.style.transform = `translateX(${(Math.random()-0.5)*200}px) rotate(${rotateEnd}deg)`;
-      piece.style.opacity = '0.15';
+  const colors=['#d4a849','#e8c873','#0f4c4f','#16686b','#fff'];
+  for(let i=0;i<80;i++){
+    const el=document.createElement('div');
+    el.className='confetti-piece';
+    const sz=6+Math.random()*6;
+    el.style.cssText=`width:${sz}px;height:${sz*.4}px;background:${colors[Math.floor(Math.random()*colors.length)]};left:${Math.random()*100}vw`;
+    const dur=2.4+Math.random()*1.8;
+    el.style.transition=`transform ${dur}s cubic-bezier(.25,.46,.45,.94),top ${dur}s linear,opacity ${dur}s ease-in`;
+    document.body.appendChild(el);
+    requestAnimationFrame(()=>{
+      el.style.top='105vh';
+      el.style.transform=`translateX(${(Math.random()-.5)*200}px) rotate(${360+Math.random()*720}deg)`;
+      el.style.opacity='0.1';
     });
-    setTimeout(() => piece.remove(), duration * 1000 + 200);
+    setTimeout(()=>el.remove(), dur*1000+200);
   }
 }
 </script>
