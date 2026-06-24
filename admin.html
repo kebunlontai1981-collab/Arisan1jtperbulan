@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Arisan</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<!-- AUTH CHECK SPLASH -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-mark">A</div>
+      <h1>Admin Panel</h1>
+      <p>Masuk sebagai administrator</p>
+    </div>
+    <form id="login-form" class="auth-form">
+      <div class="form-group">
+        <label>Email Admin</label>
+        <input type="email" id="login-email" placeholder="admin@arisan.com" required>
+      </div>
+      <div class="form-group">
+        <label>Kata Sandi</label>
+        <input type="password" id="login-password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="login-btn">Masuk</button>
+      <p id="auth-error" class="auth-error"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ADMIN APP -->
+<div id="app" class="app hidden">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-mark sm">A</div>
+      <span class="sidebar-title">Admin</span>
+      <button class="sidebar-close" id="sidebar-close">✕</button>
+    </div>
+    <div class="user-card">
+      <div class="user-avatar admin-badge" id="nav-avatar"></div>
+      <div class="user-info">
+        <div class="user-name" id="nav-username">—</div>
+        <div class="user-role">Administrator</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-page="dashboard">
+        <span class="nav-icon">📊</span> Dashboard
+      </a>
+      <a class="nav-item" data-page="members">
+        <span class="nav-icon">👥</span> Anggota
+      </a>
+      <a class="nav-item" data-page="groups">
+        <span class="nav-icon">🏠</span> Kelola Grup
+      </a>
+      <a class="nav-item" data-page="payments">
+        <span class="nav-icon">💳</span> Verifikasi Iuran
+      </a>
+      <a class="nav-item" data-page="draw">
+        <span class="nav-icon">🎰</span> Kocok Arisan
+      </a>
+      <a class="nav-item" data-page="chat-mod">
+        <span class="nav-icon">💬</span> Moderasi Chat
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn btn-ghost" id="logout-btn">⬅ Keluar</button>
+    </div>
+  </aside>
+
+  <div class="topbar">
+    <button class="hamburger" id="hamburger">☰</button>
+    <h2 class="topbar-title" id="topbar-title">Dashboard</h2>
+  </div>
+
+  <main class="main-content">
+
+    <!-- PAGE: DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card">
+          <div class="stat-val" id="stat-members">—</div>
+          <div class="stat-lbl">Total Anggota</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-groups">—</div>
+          <div class="stat-lbl">Total Grup</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-pending">—</div>
+          <div class="stat-lbl">Menunggu Verifikasi</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-paid">—</div>
+          <div class="stat-lbl">Sudah Lunas</div>
+        </div>
+      </div>
+      <div class="page-header" style="margin-top:2rem">
+        <h3>Aktivitas Terbaru</h3>
+      </div>
+      <div id="recent-activity"></div>
+    </div>
+
+    <!-- PAGE: MEMBERS -->
+    <div class="page hidden" id="page-members">
+      <div class="page-header">
+        <h2>Manajemen Anggota</h2>
+        <button class="btn btn-primary" id="add-member-btn">+ Tambah Anggota</button>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="member-search" placeholder="Cari nama atau email...">
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="members-table">
+          <thead>
+            <tr>
+              <th>Foto</th><th>Nama</th><th>Email</th><th>Role</th><th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="members-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PAGE: GROUPS -->
+    <div class="page hidden" id="page-groups">
+      <div class="page-header">
+        <h2>Kelola Grup Arisan</h2>
+        <button class="btn btn-primary" id="add-group-btn">+ Buat Grup Baru</button>
+      </div>
+      <div class="groups-grid" id="admin-groups-grid"></div>
+    </div>
+
+    <!-- PAGE: PAYMENTS VERIFICATION -->
+    <div class="page hidden" id="page-payments">
+      <div class="page-header">
+        <h2>Verifikasi Iuran</h2>
+        <p>Periksa bukti transfer dan tandai lunas</p>
+      </div>
+      <div class="filter-tabs" id="payment-filter-tabs">
+        <button class="filter-tab active" data-status="pending">Menunggu</button>
+        <button class="filter-tab" data-status="paid">Lunas</button>
+        <button class="filter-tab" data-status="unpaid">Belum Bayar</button>
+      </div>
+      <div id="payments-verify-list"></div>
+    </div>
+
+    <!-- PAGE: DRAW -->
+    <div class="page hidden" id="page-draw">
+      <div class="page-header">
+        <h2>Kocok Arisan</h2>
+        <p>Pilih grup dan kocok pemenang periode ini</p>
+      </div>
+      <div class="draw-panel">
+        <div class="form-group">
+          <label>Pilih Grup</label>
+          <select id="draw-group-select" class="form-select">
+            <option value="">— Pilih grup —</option>
+          </select>
+        </div>
+        <div class="eligible-list" id="eligible-list">
+          <p class="muted">Pilih grup untuk melihat anggota yang eligible</p>
+        </div>
+        <div class="draw-slot" id="draw-slot">
+          <div class="draw-slot-inner" id="draw-slot-inner">🎰</div>
+        </div>
+        <button class="btn btn-primary btn-lg btn-full" id="draw-btn" disabled>
+          🎲 Mulai Pengundian
+        </button>
+        <div class="draw-result hidden" id="draw-result">
+          <div class="winner-announce" id="draw-winner-announce"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: CHAT MODERATION -->
+    <div class="page hidden" id="page-chat-mod">
+      <div class="page-header">
+        <h2>Moderasi Chat</h2>
+        <p>Pantau dan hapus pesan tidak pantas</p>
+      </div>
+      <div class="form-group" style="max-width:300px">
+        <label>Filter Grup</label>
+        <select id="chat-mod-group-select" class="form-select">
+          <option value="">Semua Grup</option>
+        </select>
+      </div>
+      <div id="chat-mod-list"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL: Add/Edit Member -->
+<div class="modal-overlay hidden" id="member-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="member-modal-title">Tambah Anggota</h3>
+      <button class="modal-close" id="member-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="avatar-upload-area">
+        <div class="avatar-preview" id="avatar-preview">👤</div>
+        <button class="btn btn-ghost btn-sm" id="avatar-upload-btn">Upload Foto Profil</button>
+        <input type="file" id="avatar-input" accept="image/*" class="upload-input">
+      </div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="member-username" placeholder="nama_anggota">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="member-email" placeholder="anggota@arisan.com">
+      </div>
+      <div class="form-group">
+        <label>Kata Sandi (untuk akun baru)</label>
+        <input type="password" id="member-password" placeholder="min. 6 karakter">
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="member-role" class="form-select">
+          <option value="user">User (Anggota)</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="cancel-member">Batal</button>
+      <button class="btn btn-primary" id="save-member">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add/Edit Group -->
+<div class="modal-overlay hidden" id="group-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="group-modal-title">Buat Grup Baru</h3>
+      <button class="modal-close" id="group-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="avatar-upload-area">
+        <div class="avatar-preview cover-preview" id="group-cover-preview">🏠</div>
+        <button class="btn btn-ghost btn-sm" id="cover-upload-btn">Upload Foto Sampul</button>
+        <input type="file" id="cover-input" accept="image/*" class="upload-input">
+      </div>
+      <div class="form-group">
+        <label>Nama Grup</label>
+        <input type="text" id="group-name" placeholder="Arisan Keluarga Besar">
+      </div>
+      <div class="form-group">
+        <label>Deskripsi</label>
+        <textarea id="group-desc" placeholder="Deskripsi singkat grup..." rows="3"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nominal Iuran (Rp)</label>
+          <input type="number" id="group-amount" placeholder="500000">
+        </div>
+        <div class="form-group">
+          <label>Maks. Slot</label>
+          <input type="number" id="group-slots" placeholder="12">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="cancel-group">Batal</button>
+      <button class="btn btn-primary" id="save-group">Simpan Grup</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast hidden" id="toast"></div>
+
+<!-- WINNER ANNOUNCEMENT -->
+<div class="winner-overlay hidden" id="winner-overlay">
+  <div class="winner-card">
+    <div class="winner-icon">🎉</div>
+    <h2>Pemenang Terpilih!</h2>
+    <div class="winner-name" id="winner-name-display">—</div>
+    <button class="btn btn-primary" onclick="closeWinner()">Tutup</button>
+  </div>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>
