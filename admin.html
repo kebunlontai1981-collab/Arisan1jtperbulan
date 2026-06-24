@@ -660,22 +660,36 @@ document.getElementById('btn-new-group').addEventListener('click', () => {
   document.getElementById('modal-group').classList.add('show');
 });
 
-function editGroup(groupId){
-  // Cari data grup dari cache lokal
-  const g = allGroupsAdmin.find(x => x.id === groupId);
-  if (!g){ toast('Data grup tidak ditemukan.','err'); return; }
+async function editGroup(groupId){
+  try {
+    const { data: groups, error } = await db
+      .from('arisan_groups')
+      .select('*')
+      .eq('id', groupId);
 
-  document.getElementById('group-modal-title').textContent = '✏️ Edit Grup Arisan';
-  document.getElementById('group-edit-id').value      = g.id;
-  document.getElementById('group-name-input').value   = g.group_name || '';
-  document.getElementById('group-desc-input').value   = g.description || '';
-  document.getElementById('group-amount-input').value = g.contribution_amount || '';
-  document.getElementById('group-slots-input').value  = g.max_slots || '';
-  document.getElementById('group-cover-input').value  = g.group_cover_url || '';
-  document.getElementById('btn-save-group').textContent = 'Simpan Perubahan';
-  document.getElementById('modal-group').classList.add('show');
+    if (error) throw error;
+
+    const g = (groups && groups.length > 0) ? groups[0] : null;
+    if (!g) {
+      toast('Gagal memuat data grup, silakan coba lagi.', 'err');
+      return;
+    }
+
+    document.getElementById('group-modal-title').textContent = '✏️ Edit Grup Arisan';
+    document.getElementById('group-edit-id').value      = g.id;
+    document.getElementById('group-name-input').value   = g.group_name || '';
+    document.getElementById('group-desc-input').value   = g.description || '';
+    document.getElementById('group-amount-input').value = g.contribution_amount || '';
+    document.getElementById('group-slots-input').value  = g.max_slots || '';
+    document.getElementById('group-cover-input').value  = g.group_cover_url || '';
+    document.getElementById('btn-save-group').textContent = 'Simpan Perubahan';
+    document.getElementById('modal-group').classList.add('show');
+
+  } catch(err) {
+    toast('Gagal memuat data grup, silakan coba lagi.', 'err');
+    console.error('editGroup error:', err);
+  }
 }
-
 document.getElementById('btn-save-group').addEventListener('click', async () => {
   const id                  = document.getElementById('group-edit-id').value.trim();
   const group_name          = document.getElementById('group-name-input').value.trim();
