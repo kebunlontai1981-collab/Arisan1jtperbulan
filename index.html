@@ -802,13 +802,39 @@ async function joinGroup(groupId, groupName){
    GROUP DETAIL + CHAT GROUP
 ══════════════════════════════════════ */
 async function openGroupDetail(groupId){
-  // Pastikan berada di panel home
-  switchTab('home');
-  showHomeDetail();
+  // Cari dulu di cache lokal — jika belum ada (race condition saat allGroups belum termuat),
+  // fallback fetch langsung dari Supabase berdasarkan ID, TANPA .single()
+  let g = allGroups.find(x => String(x.id) === String(groupId));
+
+  if (!g) {
+    const { data: groupRows, error: groupErr } = await db
+      .from('arisan_groups')
+      .select('*')
+      .eq('id', groupId);
+    g = (groupRows && groupRows.length > 0) ? groupRows[0] : null;
+
+    if (groupErr) console.error('Fallback fetch group error:', groupErr);
+
+    // Simpan ke cache lokal supaya tidak fetch ulang lain kali
+    if (g && !allGroups.some(x => x.id === g.id)) {
+      allGroups.push(g);
+    }
+  }
+
+  if (!g) {
+    toast('Data grup tidak ditemukan.', 'err');
+    return;
+  }
+
+  // Baru pindah ke view detail SETELAH data grup dipastikan ada
+  document.getElementById('home-list-view').classList.add('hidden');
+  document.getElementById('home-detail-view').classList.remove('hidden');
+  document.querySelectorAll('.bn-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.bn-btn[data-tab="home"]').classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-home').classList.add('active');
 
   activeGroupId = groupId;
-  const g = allGroups.find(x => x.id === groupId);
-  if (!g) { toast('Data grup tidak ditemukan.', 'err'); showHomeList(); return; }
 
   document.getElementById('gd-name').textContent     = g.group_name;
   document.getElementById('gd-desc').textContent     = g.description || '';
