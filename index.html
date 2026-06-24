@@ -3,181 +3,920 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Arisan Keluarga & Komunitas</title>
-<link rel="stylesheet" href="style.css">
+<title>Arisan Keluarga &amp; Komunitas — Portal Anggota</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --teal-deep:#0b3438;
+  --teal:#0f4c4f;
+  --teal-light:#16686b;
+  --navy:#0a1f2e;
+  --gold:#d4a849;
+  --gold-light:#e8c873;
+  --gold-dim:rgba(212,168,73,0.15);
+  --cream:#faf7f0;
+  --surface:#ffffff;
+  --surface2:#f5f2ea;
+  --ink:#0e1f23;
+  --ink-muted:#5a6b6d;
+  --border:#e3ddd0;
+  --danger:#c0392b;
+  --success:#1e8a5f;
+  --warn:#b8860b;
+  --radius:14px;
+  --radius-sm:8px;
+  --shadow:0 4px 24px rgba(11,52,56,0.08);
+  --shadow-lg:0 20px 60px rgba(11,52,56,0.18);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;line-height:1.55}
+h1,h2,h3{font-family:'Fraunces',serif}
+.hidden{display:none!important}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px}
+
+/* ══ LOGIN SCREEN ══ */
+#login-screen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--navy) 0%,var(--teal-deep) 55%,var(--teal) 100%);
+  padding:20px;position:relative;overflow:hidden;
+}
+#login-screen::before{
+  content:'';position:absolute;top:-20%;right:-10%;width:500px;height:500px;border-radius:50%;
+  background:radial-gradient(circle,rgba(212,168,73,0.12) 0%,transparent 70%);
+}
+#login-screen::after{
+  content:'';position:absolute;bottom:-15%;left:-10%;width:400px;height:400px;border-radius:50%;
+  background:radial-gradient(circle,rgba(212,168,73,0.08) 0%,transparent 70%);
+}
+.login-card{
+  background:var(--surface);border-radius:20px;padding:44px 38px;width:100%;max-width:420px;
+  box-shadow:var(--shadow-lg);position:relative;z-index:2;border:1px solid rgba(212,168,73,0.2);
+}
+.login-brand{text-align:center;margin-bottom:8px}
+.login-brand .icon{font-size:38px;margin-bottom:10px;display:block}
+.login-brand h1{font-size:24px;color:var(--teal-deep);font-weight:700;letter-spacing:.2px}
+.login-brand p{font-size:13px;color:var(--ink-muted);margin-top:4px}
+.login-form{margin-top:30px;display:flex;flex-direction:column;gap:16px}
+.field label{font-size:12px;font-weight:700;color:var(--teal-deep);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px}
+.field input{
+  width:100%;padding:13px 15px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  font-size:14px;background:var(--surface2);transition:.2s;color:var(--ink);
+}
+.field input:focus{outline:none;border-color:var(--gold);background:#fff;box-shadow:0 0 0 3px var(--gold-dim)}
+.btn-gold{
+  background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--navy);border:none;
+  padding:14px;border-radius:var(--radius-sm);font-weight:800;font-size:14.5px;letter-spacing:.3px;
+  transition:.2s;box-shadow:0 6px 18px rgba(212,168,73,0.35);margin-top:6px;
+}
+.btn-gold:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(212,168,73,0.45)}
+.btn-gold:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.login-err{color:var(--danger);font-size:13px;text-align:center;min-height:18px;font-weight:600}
+.login-foot{text-align:center;margin-top:22px;font-size:12px;color:var(--ink-muted)}
+
+/* ══ APP SHELL ══ */
+#app-shell{display:none;min-height:100vh}
+#app-shell.active{display:block}
+.topbar{
+  background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;
+  display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;
+  box-shadow:0 1px 4px rgba(0,0,0,0.04);
+}
+.topbar-brand{display:flex;align-items:center;gap:10px}
+.topbar-brand .icon{font-size:22px}
+.topbar-brand h2{font-size:18px;color:var(--teal-deep);font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.user-chip{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--teal-deep)}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold-dim);color:var(--warn);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;overflow:hidden;flex-shrink:0}
+.user-avatar img{width:100%;height:100%;object-fit:cover}
+.btn-logout{background:none;border:1.5px solid var(--border);color:var(--ink-muted);padding:8px 14px;
+  border-radius:var(--radius-sm);font-size:12.5px;font-weight:700;transition:.15s}
+.btn-logout:hover{border-color:var(--danger);color:var(--danger);background:rgba(192,57,43,0.06)}
+
+.tabbar{display:flex;gap:4px;background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 20px;overflow-x:auto;scrollbar-width:none}
+.tabbar::-webkit-scrollbar{display:none}
+.tab-btn{flex-shrink:0;padding:14px 18px;border:none;background:none;color:var(--ink-muted);
+  font-weight:700;font-size:13.5px;border-bottom:3px solid transparent;transition:.15s}
+.tab-btn.active{color:var(--teal-deep);border-bottom-color:var(--gold)}
+.tab-btn:hover{color:var(--teal)}
+
+.main-content{max-width:980px;margin:0 auto;padding:26px 20px 80px}
+.panel{display:none}
+.panel.active{display:block;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap}
+.sec-head h3{font-size:20px;color:var(--teal-deep)}
+.search-box{display:flex;gap:8px;flex:1;max-width:380px;margin-left:auto}
+.search-box input{flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13.5px}
+.search-box input:focus{outline:none;border-color:var(--gold)}
+
+.group-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.group-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;box-shadow:var(--shadow);transition:.2s;cursor:pointer}
+.group-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+.group-cover{width:100%;height:120px;background:linear-gradient(135deg,var(--teal),var(--teal-deep));
+  display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5);font-size:34px;position:relative;overflow:hidden}
+.group-cover img{width:100%;height:100%;object-fit:cover}
+.group-body{padding:16px}
+.group-body h4{font-size:15.5px;color:var(--teal-deep);margin-bottom:6px;font-weight:700}
+.group-meta{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-muted);margin-bottom:10px}
+.group-meta strong{color:var(--warn);font-family:'Plus Jakarta Sans'}
+.slot-bar-wrap{height:6px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-bottom:10px}
+.slot-bar{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));border-radius:99px}
+.btn-join{width:100%;padding:9px;border-radius:var(--radius-sm);border:1.5px solid var(--teal);
+  background:none;color:var(--teal);font-weight:700;font-size:12.5px;transition:.15s}
+.btn-join:hover{background:var(--teal);color:#fff}
+.btn-join.joined{border-color:var(--success);color:var(--success);cursor:default}
+.btn-join.joined:hover{background:none}
+
+.empty-note{text-align:center;padding:50px 20px;color:var(--ink-muted)}
+.empty-note .ic{font-size:40px;display:block;margin-bottom:10px;opacity:.5}
+
+/* Group detail */
+.group-detail-back{display:inline-flex;align-items:center;gap:6px;color:var(--teal);font-weight:700;
+  font-size:13px;margin-bottom:16px;background:none;border:none}
+.group-detail-head{background:linear-gradient(135deg,var(--teal-deep),var(--teal));border-radius:var(--radius);
+  padding:22px;color:#fff;margin-bottom:20px;position:relative;overflow:hidden}
+.group-detail-head h2{font-size:22px;margin-bottom:6px}
+.gd-stats{display:flex;gap:22px;margin-top:14px;flex-wrap:wrap}
+.gd-stat{font-size:12px;color:rgba(255,255,255,.7)}
+.gd-stat b{display:block;font-size:17px;color:var(--gold-light);font-family:'Plus Jakarta Sans'}
+
+.chat-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  display:flex;flex-direction:column;height:480px;overflow:hidden;box-shadow:var(--shadow)}
+.chat-head{padding:13px 18px;border-bottom:1px solid var(--border);font-weight:700;color:var(--teal-deep);font-size:14px}
+.chat-messages{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.msg-row{display:flex;gap:8px;max-width:78%}
+.msg-row.mine{align-self:flex-end;flex-direction:row-reverse}
+.msg-av{width:30px;height:30px;border-radius:50%;background:var(--gold-dim);color:var(--warn);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0}
+.msg-bubble{background:var(--surface2);border-radius:14px;padding:9px 13px;font-size:13.5px}
+.msg-row.mine .msg-bubble{background:var(--teal);color:#fff}
+.msg-name{font-size:10.5px;font-weight:700;color:var(--ink-muted);margin-bottom:2px}
+.msg-row.mine .msg-name{display:none}
+.chat-input-row{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border)}
+.chat-input-row input{flex:1;padding:11px 14px;border:1.5px solid var(--border);border-radius:99px;font-size:13.5px}
+.chat-input-row input:focus{outline:none;border-color:var(--gold)}
+.btn-send{width:42px;height:42px;border-radius:50%;background:var(--teal);color:#fff;border:none;
+  display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.btn-send:hover{background:var(--teal-light)}
+
+/* Iuran */
+.bill-list{display:flex;flex-direction:column;gap:10px}
+.bill-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);flex-wrap:wrap}
+.bill-info{flex:1;min-width:180px}
+.bill-info h4{font-size:14.5px;color:var(--teal-deep);margin-bottom:3px}
+.bill-info span{font-size:12px;color:var(--ink-muted)}
+.bill-amount{font-size:17px;font-weight:800;color:var(--warn);font-family:'Plus Jakarta Sans'}
+.status-pill{font-size:11px;font-weight:800;padding:5px 12px;border-radius:99px;letter-spacing:.3px;text-transform:uppercase}
+.status-pill.unpaid{background:rgba(192,57,43,0.1);color:var(--danger)}
+.status-pill.pending_verification{background:rgba(184,134,11,0.12);color:var(--warn)}
+.status-pill.paid{background:rgba(30,138,95,0.1);color:var(--success)}
+.btn-upload{background:var(--teal);color:#fff;border:none;padding:9px 16px;border-radius:var(--radius-sm);
+  font-size:12.5px;font-weight:700;white-space:nowrap}
+.btn-upload:hover{background:var(--teal-light)}
+.btn-upload:disabled{opacity:.5;cursor:not-allowed}
+.file-hidden{display:none}
+.proof-thumb-small{width:42px;height:42px;border-radius:8px;object-fit:cover;border:1.5px solid var(--border);cursor:pointer}
+
+/* Profile */
+.profile-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:28px;max-width:480px;box-shadow:var(--shadow);text-align:center}
+.profile-av-lg{width:84px;height:84px;border-radius:50%;background:var(--gold-dim);color:var(--warn);
+  display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;margin:0 auto 14px;overflow:hidden}
+.profile-av-lg img{width:100%;height:100%;object-fit:cover}
+.profile-card h3{color:var(--teal-deep);margin-bottom:4px}
+.profile-card p{color:var(--ink-muted);font-size:13px;margin-bottom:18px}
+.profile-row{display:flex;justify-content:space-between;padding:11px 0;border-top:1px solid var(--border);font-size:13.5px}
+.profile-row span:first-child{color:var(--ink-muted)}
+.profile-row span:last-child{font-weight:700;color:var(--teal-deep)}
+
+/* Toast */
+#toast-box{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:9000;
+  display:flex;flex-direction:column;gap:8px;align-items:center}
+.toast{background:var(--navy);color:#fff;padding:11px 22px;border-radius:99px;font-size:13px;font-weight:600;
+  box-shadow:var(--shadow-lg);opacity:0;transform:translateY(10px);transition:.3s;white-space:nowrap}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.err{background:var(--danger)}
+.toast.ok{background:var(--success)}
+
+/* Modal generic */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,31,46,.6);backdrop-filter:blur(4px);
+  z-index:8000;align-items:center;justify-content:center;padding:18px}
+.modal-overlay.show{display:flex}
+.modal-box{background:var(--surface);border-radius:18px;padding:26px;width:100%;max-width:420px;
+  box-shadow:var(--shadow-lg);position:relative;max-height:88vh;overflow-y:auto}
+.modal-box h3{color:var(--teal-deep);margin-bottom:14px;font-size:18px}
+.modal-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:18px;color:var(--ink-muted)}
+.modal-box .field{margin-bottom:14px}
+.lightbox-img-full{max-width:100%;border-radius:10px;display:block;margin:0 auto}
+
+/* ══ WINNER OVERLAY + CONFETTI ══ */
+#winner-overlay{
+  display:none;position:fixed;inset:0;z-index:99999;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 30%,rgba(212,168,73,0.25),rgba(10,31,46,0.92));
+}
+#winner-overlay.show{display:flex}
+.winner-card{
+  background:linear-gradient(160deg,var(--teal-deep),var(--navy));border:2px solid var(--gold);
+  border-radius:24px;padding:46px 40px;text-align:center;max-width:380px;position:relative;z-index:2;
+  box-shadow:0 0 80px rgba(212,168,73,0.4);animation:popIn .5s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+.winner-card .trophy{font-size:54px;margin-bottom:10px}
+.winner-card .lbl{color:var(--gold-light);font-size:12px;letter-spacing:2px;font-weight:800;text-transform:uppercase}
+.winner-card h2{color:#fff;font-size:28px;margin:10px 0 6px}
+.winner-card p{color:rgba(255,255,255,.65);font-size:13px;margin-bottom:22px}
+.winner-card button{background:var(--gold);color:var(--navy);border:none;padding:11px 26px;
+  border-radius:99px;font-weight:800;font-size:13.5px}
+.confetti-piece{position:fixed;top:-10px;z-index:99998;pointer-events:none;border-radius:2px}
+
+@media(max-width:600px){
+  .topbar{padding:12px 16px}
+  .main-content{padding:18px 14px 70px}
+  .search-box{max-width:none;margin-left:0;width:100%}
+  .sec-head{flex-direction:column;align-items:stretch}
+  .chat-wrap{height:420px}
+}
+</style>
 </head>
 <body>
 
-<!-- ══ AUTH SCREEN ══ -->
-<div id="auth-screen" class="auth-screen">
-  <div class="auth-card">
-    <div class="auth-logo">
-      <div class="logo-mark">A</div>
-      <h1>Arisan</h1>
-      <p>Kelola arisan keluarga & komunitas</p>
+<!-- ══════════════ LOGIN SCREEN ══════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <span class="icon">🪙</span>
+      <h1>Arisan Keluarga</h1>
+      <p>&amp; Komunitas — Portal Anggota</p>
     </div>
-    <form id="login-form" class="auth-form">
-      <div class="form-group">
-        <label>Email</label>
-        <input type="email" id="login-email" placeholder="email@arisan.com" required>
+    <form class="login-form" id="login-form">
+      <div class="field">
+        <label>Alamat Email</label>
+        <input type="email" id="login-email" placeholder="nama@email.com" required autocomplete="username">
       </div>
-      <div class="form-group">
+      <div class="field">
         <label>Kata Sandi</label>
-        <input type="password" id="login-password" placeholder="••••••••" required>
+        <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
       </div>
-      <button type="submit" class="btn btn-primary btn-full" id="login-btn">
-        <span>Masuk</span>
-      </button>
-      <p id="auth-error" class="auth-error"></p>
+      <button type="submit" class="btn-gold" id="btn-login">Masuk</button>
+      <div class="login-err" id="login-err"></div>
     </form>
+    <div class="login-foot">Belum punya akun? Hubungi admin grup Anda.</div>
   </div>
 </div>
 
-<!-- ══ MAIN APP ══ -->
-<div id="app" class="app hidden">
-
-  <!-- SIDEBAR -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <div class="logo-mark sm">A</div>
-      <span class="sidebar-title">Arisan</span>
-      <button class="sidebar-close" id="sidebar-close">✕</button>
-    </div>
-    <div class="user-card" id="user-card">
-      <div class="user-avatar" id="nav-avatar"></div>
-      <div class="user-info">
-        <div class="user-name" id="nav-username">—</div>
-        <div class="user-role" id="nav-role">—</div>
-      </div>
-    </div>
-    <nav class="sidebar-nav">
-      <a class="nav-item active" data-page="groups">
-        <span class="nav-icon">🏠</span> Grup Arisan
-      </a>
-      <a class="nav-item" data-page="payments">
-        <span class="nav-icon">💳</span> Iuran Saya
-      </a>
-      <a class="nav-item" data-page="history">
-        <span class="nav-icon">📜</span> Riwayat
-      </a>
-    </nav>
-    <div class="sidebar-footer">
-      <button class="btn btn-ghost" id="logout-btn">⬅ Keluar</button>
-    </div>
-  </aside>
-
-  <!-- TOPBAR -->
+<!-- ══════════════ APP SHELL (setelah login) ══════════════ -->
+<div id="app-shell">
   <div class="topbar">
-    <button class="hamburger" id="hamburger">☰</button>
-    <h2 class="topbar-title" id="topbar-title">Grup Arisan</h2>
+    <div class="topbar-brand">
+      <span class="icon">🪙</span>
+      <h2>Arisan Keluarga</h2>
+    </div>
     <div class="topbar-right">
-      <div class="notif-dot hidden" id="notif-dot"></div>
+      <div class="user-chip">
+        <div class="user-avatar" id="topbar-avatar">?</div>
+        <span id="topbar-username">—</span>
+      </div>
+      <button class="btn-logout" id="btn-logout">Keluar</button>
     </div>
   </div>
 
-  <!-- PAGES -->
-  <main class="main-content">
+  <nav class="tabbar">
+    <button class="tab-btn active" data-panel="groups">🔍 Cari Grup</button>
+    <button class="tab-btn" data-panel="mygroups">📂 Grup Saya</button>
+    <button class="tab-btn" data-panel="bills">💳 Iuran Saya</button>
+    <button class="tab-btn" data-panel="profile">👤 Profil</button>
+  </nav>
 
-    <!-- PAGE: GROUPS -->
-    <div class="page active" id="page-groups">
-      <div class="page-header">
-        <h2>Grup Arisan</h2>
-        <p>Pilih grup untuk bergabung atau lihat detail</p>
+  <div class="main-content">
+
+    <!-- PANEL: Cari & Gabung Grup -->
+    <div class="panel active" id="panel-groups">
+      <div class="sec-head">
+        <h3>Cari &amp; Gabung Grup Arisan</h3>
+        <div class="search-box">
+          <input type="text" id="group-search" placeholder="Cari nama grup arisan...">
+        </div>
       </div>
-      <div class="groups-grid" id="groups-grid">
-        <div class="skeleton-card"></div>
-        <div class="skeleton-card"></div>
-      </div>
+      <div class="group-grid" id="group-grid-all"></div>
     </div>
 
-    <!-- PAGE: PAYMENTS -->
-    <div class="page hidden" id="page-payments">
-      <div class="page-header">
-        <h2>Status Iuran Saya</h2>
-        <p>Pantau status pembayaran di setiap grup</p>
+    <!-- PANEL: Grup Saya / Detail -->
+    <div class="panel" id="panel-mygroups">
+      <div id="mygroups-list-view">
+        <div class="sec-head"><h3>Grup Arisan Saya</h3></div>
+        <div class="group-grid" id="group-grid-mine"></div>
       </div>
-      <div id="payments-list"></div>
-    </div>
-
-    <!-- PAGE: HISTORY -->
-    <div class="page hidden" id="page-history">
-      <div class="page-header">
-        <h2>Riwayat Pemenang</h2>
-        <p>Rekap pengundian arisan sebelumnya</p>
-      </div>
-      <div id="history-list"></div>
-    </div>
-
-    <!-- PAGE: GROUP DETAIL (Chat + Info) -->
-    <div class="page hidden" id="page-group-detail">
-      <div class="group-detail-layout">
-        <!-- Left: Info -->
-        <div class="group-info-panel" id="group-info-panel"></div>
-        <!-- Right: Chat -->
-        <div class="chat-panel">
-          <div class="chat-header">
-            <h3 id="chat-group-name">—</h3>
-            <span class="online-badge">🟢 Live</span>
+      <div id="mygroups-detail-view" class="hidden">
+        <button class="group-detail-back" id="btn-back-to-mygroups">← Kembali ke Grup Saya</button>
+        <div class="group-detail-head">
+          <h2 id="gd-name">—</h2>
+          <div id="gd-desc" style="font-size:13px;color:rgba(255,255,255,.7)">—</div>
+          <div class="gd-stats">
+            <div class="gd-stat">Iuran/Putaran<b id="gd-amount">—</b></div>
+            <div class="gd-stat">Kapasitas<b id="gd-capacity">—</b></div>
+            <div class="gd-stat">Putaran Berjalan<b id="gd-round">—</b></div>
           </div>
-          <div class="chat-messages" id="chat-messages">
-            <div class="chat-empty">Belum ada pesan. Mulai percakapan!</div>
-          </div>
-          <div class="chat-input-area">
-            <input type="text" id="chat-input" placeholder="Tulis pesan..." maxlength="500">
-            <button class="btn btn-primary" id="send-btn">Kirim</button>
+        </div>
+        <div class="chat-wrap">
+          <div class="chat-head">💬 Obrolan Grup</div>
+          <div class="chat-messages" id="chat-messages"></div>
+          <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="Tulis pesan...">
+            <button class="btn-send" id="btn-send-chat">➤</button>
           </div>
         </div>
       </div>
     </div>
 
-  </main>
-</div>
+    <!-- PANEL: Iuran Saya -->
+    <div class="panel" id="panel-bills">
+      <div class="sec-head"><h3>Iuran Saya</h3></div>
+      <div class="bill-list" id="bill-list"></div>
+    </div>
 
-<!-- MODAL: Upload Bukti Bayar -->
-<div class="modal-overlay hidden" id="payment-modal">
-  <div class="modal">
-    <div class="modal-header">
-      <h3>Upload Bukti Transfer</h3>
-      <button class="modal-close" id="payment-modal-close">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="upload-area" id="upload-area">
-        <div class="upload-icon">📎</div>
-        <p>Klik atau seret foto bukti transfer</p>
-        <small>Gambar akan dikompres otomatis di bawah 200KB</small>
-        <input type="file" id="receipt-input" accept="image/*" class="upload-input">
-      </div>
-      <div id="upload-preview" class="upload-preview hidden">
-        <img id="preview-img" src="" alt="Preview">
-        <div class="upload-meta">
-          <span id="upload-size">—</span>
-          <span id="upload-status">Siap diupload</span>
-        </div>
+    <!-- PANEL: Profil -->
+    <div class="panel" id="panel-profile">
+      <div class="sec-head"><h3>Profil Saya</h3></div>
+      <div class="profile-card">
+        <div class="profile-av-lg" id="profile-avatar">?</div>
+        <h3 id="profile-username">—</h3>
+        <p id="profile-email">—</p>
+        <div class="profile-row"><span>Status Akun</span><span>Anggota</span></div>
+        <div class="profile-row"><span>Total Grup Diikuti</span><span id="profile-group-count">0</span></div>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" id="cancel-upload">Batal</button>
-      <button class="btn btn-primary" id="confirm-upload">Upload & Kirim</button>
-    </div>
+
   </div>
 </div>
 
-<!-- TOAST -->
-<div class="toast hidden" id="toast"></div>
+<!-- Modal: Lightbox bukti transfer -->
+<div class="modal-overlay" id="modal-lightbox">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('lightbox')">✕</button>
+    <h3>Bukti Transfer</h3>
+    <img class="lightbox-img-full" id="lightbox-img" src="" alt="Bukti transfer">
+  </div>
+</div>
 
-<!-- WINNER ANNOUNCEMENT -->
-<div class="winner-overlay hidden" id="winner-overlay">
+<!-- Winner Overlay -->
+<div id="winner-overlay">
   <div class="winner-card">
-    <div class="winner-confetti" id="confetti-area"></div>
-    <div class="winner-icon">🎉</div>
-    <h2>Selamat!</h2>
-    <p>Pemenang Arisan Periode Ini:</p>
-    <div class="winner-name" id="winner-name-display">—</div>
-    <button class="btn btn-primary" onclick="closeWinner()">Tutup</button>
+    <div class="trophy">🏆</div>
+    <div class="lbl">Pemenang Arisan</div>
+    <h2 id="winner-name">—</h2>
+    <p id="winner-group">—</p>
+    <button onclick="closeWinnerOverlay()">Selamat! 🎉</button>
   </div>
 </div>
 
-<script src="app.js"></script>
+<div id="toast-box"></div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   SUPABASE CLIENT
+═══════════════════════════════════════════════ */
+const SUPABASE_URL  = 'https://kzhgmmopruugbnkhyemc.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6aGdtbW9wcnV1Z2Jua2h5ZW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1ODM0ODEsImV4cCI6MjA5NzE1OTQ4MX0.OQ9wILuiDuan4V3wZGMJ8mVmJvwY9lyC5BmvHHodEM8';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let currentUser   = null;   // auth user object
+let currentProfile = null;  // row dari profiles
+let myGroupIds    = [];     // array group_id yang sudah diikuti
+let allGroups     = [];
+let activeGroupId = null;
+let chatChannel   = null;
+let winnerChannel = null;
+
+/* ═══════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════ */
+function toast(msg, type){
+  const box = document.getElementById('toast-box');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  box.appendChild(el);
+  requestAnimationFrame(()=> el.classList.add('show'));
+  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=> el.remove(), 300); }, 3200);
+}
+
+function closeModal(name){
+  document.getElementById('modal-' + name).classList.remove('show');
+}
+
+function initialsOf(name){
+  if(!name) return '?';
+  const parts = name.trim().split(' ');
+  return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
+}
+
+/* ═══════════════════════════════════════════════
+   LOGIN FLOW
+═══════════════════════════════════════════════ */
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('btn-login');
+  const errBox = document.getElementById('login-err');
+  errBox.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Memverifikasi...';
+
+  try {
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+
+    const { data: profile, error: profErr } = await db
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+    if (profErr) throw profErr;
+
+    if (profile.role === 'admin') {
+      window.location.href = 'admin.html';
+      return;
+    }
+
+    currentUser = data.user;
+    currentProfile = profile;
+    await enterApp();
+
+  } catch (err) {
+    let msg = 'Gagal masuk: ';
+    if (err.message && err.message.includes('Invalid login credentials')) {
+      msg += 'Email atau password salah.';
+    } else {
+      msg += err.message || 'Terjadi kesalahan.';
+    }
+    errBox.textContent = msg;
+    btn.disabled = false;
+    btn.textContent = 'Masuk';
+  }
+});
+
+async function enterApp(){
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.add('active');
+
+  const uname = currentProfile.username || currentUser.email;
+  document.getElementById('topbar-username').textContent = uname;
+  document.getElementById('profile-username').textContent = uname;
+  document.getElementById('profile-email').textContent = currentUser.email;
+
+  const avEl = document.getElementById('topbar-avatar');
+  const avElProfile = document.getElementById('profile-avatar');
+  if (currentProfile.avatar_url) {
+    avEl.innerHTML = `<img src="${currentProfile.avatar_url}" alt="">`;
+    avElProfile.innerHTML = `<img src="${currentProfile.avatar_url}" alt="">`;
+  } else {
+    avEl.textContent = initialsOf(uname);
+    avElProfile.textContent = initialsOf(uname);
+  }
+
+  await loadMyMemberships();
+  await loadAllGroups();
+  await loadMyBills();
+  setupWinnerBroadcastListener();
+}
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await db.auth.signOut();
+  window.location.reload();
+});
+
+/* Cek sesi yang masih aktif saat reload halaman */
+(async () => {
+  const { data: { session } } = await db.auth.getSession();
+  if (session) {
+    const { data: profile, error } = await db.from('profiles').select('*').eq('id', session.user.id).single();
+    if (!error && profile) {
+      if (profile.role === 'admin') { window.location.href = 'admin.html'; return; }
+      currentUser = session.user;
+      currentProfile = profile;
+      await enterApp();
+    }
+  }
+})();
+
+/* ═══════════════════════════════════════════════
+   TAB SWITCHING
+═══════════════════════════════════════════════ */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+    if (btn.dataset.panel === 'mygroups') showMyGroupsListView();
+  });
+});
+
+/* ═══════════════════════════════════════════════
+   MEMBERSHIPS
+═══════════════════════════════════════════════ */
+async function loadMyMemberships(){
+  const { data, error } = await db
+    .from('group_members')
+    .select('group_id')
+    .eq('user_id', currentUser.id);
+  if (error) { console.error(error); return; }
+  myGroupIds = (data || []).map(r => r.group_id);
+  document.getElementById('profile-group-count').textContent = myGroupIds.length;
+}
+
+/* ═══════════════════════════════════════════════
+   LOAD GROUPS (Cari & Gabung + Grup Saya)
+═══════════════════════════════════════════════ */
+async function loadAllGroups(){
+  const { data, error } = await db.from('arisan_groups').select('*').order('created_at', { ascending: false });
+  if (error) { console.error(error); toast('Gagal memuat grup', 'err'); return; }
+  allGroups = data || [];
+  renderAllGroups(allGroups);
+  renderMyGroups();
+}
+
+function renderAllGroups(list){
+  const grid = document.getElementById('group-grid-all');
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty-note" style="grid-column:1/-1"><span class="ic">🔍</span>Belum ada grup arisan tersedia.</div>`;
+    return;
+  }
+  grid.innerHTML = list.map(g => {
+    const isMember = myGroupIds.includes(g.id);
+    const pct = g.max_slots ? Math.min(100, Math.round(((g.current_members || g.filled_slots || 0) / g.max_slots) * 100)) : 0;
+    const cover = g.group_cover_url
+      ? `<img src="${g.group_cover_url}" alt="${g.group_name}">`
+      : `🪙`;
+    return `<div class="group-card">
+      <div class="group-cover">${cover}</div>
+      <div class="group-body">
+        <h4>${g.group_name}</h4>
+        <div class="group-meta">
+          <span>Iuran: <strong>Rp${Number(g.contribution_amount||0).toLocaleString('id-ID')}</strong></span>
+          <span>Slot: ${g.max_slots||'-'}</span>
+        </div>
+        <div class="slot-bar-wrap"><div class="slot-bar" style="width:${pct}%"></div></div>
+        <button class="btn-join ${isMember?'joined':''}" ${isMember?'disabled':''} onclick="joinGroup('${g.id}','${(g.group_name||'').replace(/'/g,"\\'")}')">
+          ${isMember ? '✓ Sudah Bergabung' : 'Gabung Grup'}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMyGroups(){
+  const grid = document.getElementById('group-grid-mine');
+  const mine = allGroups.filter(g => myGroupIds.includes(g.id));
+  if (!mine.length) {
+    grid.innerHTML = `<div class="empty-note" style="grid-column:1/-1"><span class="ic">📂</span>Anda belum bergabung di grup manapun. Cari grup di tab "Cari Grup".</div>`;
+    return;
+  }
+  grid.innerHTML = mine.map(g => {
+    const cover = g.group_cover_url ? `<img src="${g.group_cover_url}" alt="${g.group_name}">` : `🪙`;
+    return `<div class="group-card" onclick="openGroupDetail('${g.id}')">
+      <div class="group-cover">${cover}</div>
+      <div class="group-body">
+        <h4>${g.group_name}</h4>
+        <div class="group-meta">
+          <span>Iuran: <strong>Rp${Number(g.contribution_amount||0).toLocaleString('id-ID')}</strong></span>
+          <span>Slot: ${g.max_slots||'-'}</span>
+        </div>
+        <button class="btn-join joined" style="pointer-events:none">Lihat Detail &amp; Chat →</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('group-search').addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase().trim();
+  const filtered = allGroups.filter(g => (g.group_name||'').toLowerCase().includes(q));
+  renderAllGroups(filtered);
+});
+
+async function joinGroup(groupId, groupName){
+  if (myGroupIds.includes(groupId)) return;
+  try {
+    const { error } = await db.from('group_members').insert([{ group_id: groupId, user_id: currentUser.id }]);
+    if (error) throw error;
+    myGroupIds.push(groupId);
+    toast(`Berhasil bergabung ke "${groupName}"!`, 'ok');
+    renderAllGroups(allGroups);
+    renderMyGroups();
+    await loadMyBills();
+  } catch (err) {
+    toast('Gagal bergabung: ' + err.message, 'err');
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   GROUP DETAIL + CHAT REALTIME
+═══════════════════════════════════════════════ */
+function showMyGroupsListView(){
+  document.getElementById('mygroups-list-view').classList.remove('hidden');
+  document.getElementById('mygroups-detail-view').classList.add('hidden');
+  if (chatChannel) { db.removeChannel(chatChannel); chatChannel = null; }
+  activeGroupId = null;
+}
+
+document.getElementById('btn-back-to-mygroups').addEventListener('click', showMyGroupsListView);
+
+async function openGroupDetail(groupId){
+  activeGroupId = groupId;
+  const g = allGroups.find(x => x.id === groupId);
+  if (!g) return;
+
+  document.getElementById('mygroups-list-view').classList.add('hidden');
+  document.getElementById('mygroups-detail-view').classList.remove('hidden');
+
+  document.getElementById('gd-name').textContent = g.group_name;
+  document.getElementById('gd-desc').textContent = g.description || 'Grup arisan keluarga & komunitas';
+  document.getElementById('gd-amount').textContent = 'Rp' + Number(g.contribution_amount||0).toLocaleString('id-ID');
+  document.getElementById('gd-capacity').textContent = (g.max_slots||'-') + ' anggota';
+
+  const { data: periods } = await db
+    .from('arisan_periods')
+    .select('round_number')
+    .eq('group_id', groupId)
+    .order('round_number', { ascending: false })
+    .limit(1);
+  document.getElementById('gd-round').textContent = periods && periods.length ? '#' + periods[0].round_number : 'Belum mulai';
+
+  await loadChatMessages(groupId);
+  subscribeToChat(groupId);
+}
+
+async function loadChatMessages(groupId){
+  const { data, error } = await db
+    .from('messages')
+    .select('*, profiles:sender_id(username, avatar_url)')
+    .eq('group_id', groupId)
+    .order('created_at', { ascending: true })
+    .limit(200);
+
+  const box = document.getElementById('chat-messages');
+  if (error) {
+    // Fallback jika relasi sender_id berbeda nama / tidak ada FK alias
+    const { data: plain } = await db.from('messages').select('*').eq('group_id', groupId).order('created_at', { ascending: true }).limit(200);
+    renderChatMessages(plain || []);
+    return;
+  }
+  renderChatMessages(data || []);
+}
+
+function renderChatMessages(rows){
+  const box = document.getElementById('chat-messages');
+  if (!rows.length) {
+    box.innerHTML = `<div class="empty-note"><span class="ic">💬</span>Belum ada pesan. Mulai obrolan grup!</div>`;
+    return;
+  }
+  box.innerHTML = rows.map(m => {
+    const isMine = m.sender_id === currentUser.id;
+    const uname = (m.profiles && m.profiles.username) || (isMine ? (currentProfile.username||'Saya') : 'Anggota');
+    return `<div class="msg-row ${isMine?'mine':''}">
+      <div class="msg-av">${initialsOf(uname)}</div>
+      <div>
+        <div class="msg-name">${uname}</div>
+        <div class="msg-bubble">${escapeHtml(m.message_text||'')}</div>
+      </div>
+    </div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function subscribeToChat(groupId){
+  if (chatChannel) { db.removeChannel(chatChannel); chatChannel = null; }
+  chatChannel = db.channel('chat-group-' + groupId)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `group_id=eq.${groupId}` }, () => {
+      loadChatMessages(groupId);
+    })
+    .subscribe();
+}
+
+document.getElementById('btn-send-chat').addEventListener('click', sendChatMessage);
+document.getElementById('chat-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendChatMessage();
+});
+
+async function sendChatMessage(){
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !activeGroupId) return;
+  input.value = '';
+  try {
+    const { error } = await db.from('messages').insert([{
+      group_id: activeGroupId,
+      sender_id: currentUser.id,
+      message_text: text
+    }]);
+    if (error) throw error;
+  } catch (err) {
+    toast('Gagal mengirim pesan: ' + err.message, 'err');
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   IURAN SAYA (BILLS / PAYMENTS)
+═══════════════════════════════════════════════ */
+async function loadMyBills(){
+  const { data, error } = await db
+    .from('payments')
+    .select('*, arisan_groups:group_id(group_name, contribution_amount)')
+    .eq('user_id', currentUser.id)
+    .order('round_number', { ascending: true });
+
+  const list = document.getElementById('bill-list');
+  if (error) {
+    list.innerHTML = `<div class="empty-note"><span class="ic">⚠️</span>Gagal memuat data iuran: ${error.message}</div>`;
+    return;
+  }
+  if (!data || !data.length) {
+    list.innerHTML = `<div class="empty-note"><span class="ic">💳</span>Belum ada tagihan iuran. Bergabunglah dengan sebuah grup untuk memulai.</div>`;
+    return;
+  }
+
+  list.innerHTML = data.map(p => {
+    const groupName = p.arisan_groups ? p.arisan_groups.group_name : 'Grup Arisan';
+    const amount = p.arisan_groups ? p.arisan_groups.contribution_amount : 0;
+    const statusLabel = { unpaid: 'Belum Bayar', pending_verification: 'Menunggu Verifikasi', paid: 'Lunas' }[p.payment_status] || p.payment_status;
+
+    let actionHtml = '';
+    if (p.payment_status === 'unpaid') {
+      actionHtml = `
+        <input type="file" accept="image/*" class="file-hidden" id="file-${p.id}" onchange="handleProofUpload(event,'${p.id}')">
+        <button class="btn-upload" onclick="document.getElementById('file-${p.id}').click()">📤 Upload Bukti</button>`;
+    } else if (p.payment_status === 'pending_verification') {
+      actionHtml = p.proof_url
+        ? `<img src="${p.proof_url}" class="proof-thumb-small" onclick="openLightbox('${p.proof_url}')" alt="bukti">`
+        : `<span style="font-size:12px;color:var(--ink-muted)">Menunggu admin</span>`;
+    } else if (p.payment_status === 'paid') {
+      actionHtml = `<span style="color:var(--success);font-weight:700;font-size:13px">✓ Lunas</span>`;
+    }
+
+    return `<div class="bill-card">
+      <div class="bill-info">
+        <h4>${groupName}</h4>
+        <span>Putaran #${p.round_number}</span>
+      </div>
+      <div class="bill-amount">Rp${Number(amount||0).toLocaleString('id-ID')}</div>
+      <span class="status-pill ${p.payment_status}">${statusLabel}</span>
+      ${actionHtml}
+    </div>`;
+  }).join('');
+}
+
+function openLightbox(url){
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('modal-lightbox').classList.add('show');
+}
+
+/* ═══════════════════════════════════════════════
+   IMAGE COMPRESSION + UPLOAD BUKTI TRANSFER
+   Target: maks ~200KB, format JPEG
+═══════════════════════════════════════════════ */
+function compressImage(file, maxKB = 200, maxDim = 1280) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => { img.src = e.target.result; };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) { height = Math.round(height * (maxDim / width)); width = maxDim; }
+        else { width = Math.round(width * (maxDim / height)); height = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      let quality = 0.85;
+      const tryCompress = () => {
+        canvas.toBlob((blob) => {
+          if (!blob) { reject(new Error('Gagal mengompresi gambar')); return; }
+          if (blob.size / 1024 <= maxKB || quality <= 0.3) {
+            resolve(blob);
+          } else {
+            quality -= 0.1;
+            tryCompress();
+          }
+        }, 'image/jpeg', quality);
+      };
+      tryCompress();
+    };
+    img.onerror = () => reject(new Error('Gagal memuat gambar'));
+  });
+}
+
+async function handleProofUpload(event, paymentId){
+  const file = event.target.files[0];
+  if (!file) return;
+  toast('Mengompresi & mengunggah bukti transfer...');
+
+  try {
+    const compressedBlob = await compressImage(file, 200, 1280);
+    const fileName = `${currentUser.id}/${paymentId}-${Date.now()}.jpg`;
+
+    const { error: upErr } = await db.storage.from('receipts').upload(fileName, compressedBlob, {
+      contentType: 'image/jpeg',
+      upsert: true
+    });
+    if (upErr) throw upErr;
+
+    const { data: urlData } = db.storage.from('receipts').getPublicUrl(fileName);
+
+    const { error: dbErr } = await db.from('payments').update({
+      proof_url: urlData.publicUrl,
+      payment_status: 'pending_verification'
+    }).eq('id', paymentId);
+    if (dbErr) throw dbErr;
+
+    toast('Bukti transfer berhasil diunggah! Menunggu verifikasi admin.', 'ok');
+    await loadMyBills();
+  } catch (err) {
+    toast('Gagal mengunggah bukti: ' + err.message, 'err');
+  } finally {
+    event.target.value = '';
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   REALTIME PAYMENTS (refresh otomatis saat admin verifikasi)
+═══════════════════════════════════════════════ */
+db.channel('payments-self-watch')
+  .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'payments' }, (payload) => {
+    if (currentUser && payload.new && payload.new.user_id === currentUser.id) {
+      loadMyBills();
+    }
+  })
+  .subscribe();
+
+/* ═══════════════════════════════════════════════
+   WINNER OVERLAY — Broadcast Realtime + Confetti
+═══════════════════════════════════════════════ */
+function setupWinnerBroadcastListener(){
+  if (winnerChannel) return;
+  winnerChannel = db.channel('arisan-winner-broadcast')
+    .on('broadcast', { event: 'winner_announced' }, (payload) => {
+      const p = payload.payload || {};
+      showWinnerOverlay(p.winner_name || 'Anggota', p.group_name || 'Grup Arisan');
+    })
+    .subscribe();
+}
+
+function showWinnerOverlay(name, groupName){
+  document.getElementById('winner-name').textContent = name;
+  document.getElementById('winner-group').textContent = 'Selamat memenangkan arisan di grup "' + groupName + '"!';
+  document.getElementById('winner-overlay').classList.add('show');
+  launchConfetti();
+}
+
+function closeWinnerOverlay(){
+  document.getElementById('winner-overlay').classList.remove('show');
+}
+
+function launchConfetti(){
+  const colors = ['#d4a849','#e8c873','#0f4c4f','#16686b','#ffffff'];
+  for (let i = 0; i < 80; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    const size = 6 + Math.random() * 6;
+    piece.style.width = size + 'px';
+    piece.style.height = (size * 0.4) + 'px';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.left = Math.random() * 100 + 'vw';
+    const duration = 2.4 + Math.random() * 1.8;
+    const rotateEnd = 360 + Math.random() * 720;
+    piece.style.transition = `transform ${duration}s cubic-bezier(.25,.46,.45,.94), top ${duration}s linear, opacity ${duration}s ease-in`;
+    document.body.appendChild(piece);
+    requestAnimationFrame(() => {
+      piece.style.top = '105vh';
+      piece.style.transform = `translateX(${(Math.random()-0.5)*200}px) rotate(${rotateEnd}deg)`;
+      piece.style.opacity = '0.15';
+    });
+    setTimeout(() => piece.remove(), duration * 1000 + 200);
+  }
+}
+</script>
 </body>
 </html>
